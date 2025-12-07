@@ -106,7 +106,9 @@ function createServer({ config, authStateStore, fetchFn = fetch, cryptoLib = nod
 		const safeConfigOrigin = JSON.stringify(config.uri);
 		const safeToken = JSON.stringify(token);
 		const storageKey = "myspotbackup_token";
-		const fallbackHtml = `<p>Login complete. You can close this window.</p><p>If it does not close automatically, return to the original tab.</p>`;
+		const fallbackHtml = `<p>Login complete. You can close this window.</p><p>If it does not close automatically, return to the original tab.</p><p>If nothing happens, <a href="/#token=${encodeURIComponent(
+			token
+		)}">click here to continue</a>.</p>`;
 		res.send(
 			"<!doctype html><html><body><script>" +
 				`window.onload = () => {
@@ -142,6 +144,14 @@ function createServer({ config, authStateStore, fetchFn = fetch, cryptoLib = nod
     sessionStorage.setItem(${JSON.stringify(storageKey)}, token);
   } catch (err) {
     console.warn("unable to persist token in sessionStorage", err);
+  }
+
+  try {
+    const hash = "#token=" + encodeURIComponent(token);
+    window.location.replace("/" + hash);
+    return;
+  } catch (err) {
+    console.warn("unable to redirect to home with hash token", err);
   }
 
   try {
