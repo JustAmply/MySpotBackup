@@ -1,10 +1,11 @@
 # MySpotBackup
+
 This is a working version of the discontinued and unfortunately no longer working [SpotMyBackup](https://github.com/secuvera/SpotMyBackup).
 
 > Backup and Restore your Spotify Playlists and "My Music".
-> 
+>
 > This javascript based app allows you to backup all your playlists and import them in any other Spotify Account. It uses the OAuth-Functionality of Spotify to be able to handle your personal playlists.
-> 
+>
 > In consequence, no credentials or data is stored or processed on the Webserver itself.
 
 This has been hacked together last night so there is a lot of room for improvement, but at least it's working again.
@@ -12,42 +13,50 @@ This has been hacked together last night so there is a lot of room for improveme
 There was a small issue with the authentication process, which i fixed using an express server which was faster for me, for code improvement ideas see below.
 
 ## How to use:
-1) Clone/Download Repository
-2) Install Node.js
-3) Run ``npm install`` 
-4) Create an app at https://developer.spotify.com/dashboard/
+
+1. Clone/Download Repository
+2. Install Node.js
+3. Run `npm install`
+4. Create an app at https://developer.spotify.com/dashboard/
    - App name : e.g. Michaels SpotMyBackup
    - App description : For backing up my account
-   -  Website : http://youripaddress:8080
-   -  Redirect URIs : http://youripaddress:8080/callback
+   - Website : http://youripaddress:8080
+   - Redirect URIs : http://youripaddress:8080/callback
    - In the User Management, add your second (new/old) account as well
      - Second user might need to login into dashboard one time as well to confirm terms and conditions
-4) Copy ``.env.example`` to ``.env`` and set the values (at minimum ``CLIENT_ID`` and ``PUBLIC_URI`` to match your deployment); the frontend reads these via the server so no additional config.js is needed
-4) Run ``npm run serve-express`` (equal to running ``node index.js``, see package.json)
-5) Click Login on old account
-6) Export File
-7) Open in incognito window
-8) Click login on new account
-9) Import File
-10) Done
+5. Copy `.env.example` to `.env` and set the values (at minimum `CLIENT_ID` and `PUBLIC_URI` to match your deployment); the frontend reads these via the server so no additional config.js is needed
+6. Run `npm run serve-express` (equal to running `node index.js`, see package.json)
+7. Click Login on old account
+8. Export File
+9. Open in incognito window
+10. Click login on new account
+11. Import File
+12. Done
 
 ## Docker
+
 Build and run locally:
+
 ```
 docker build -t myspotbackup .
 docker run --rm -p 8080:8080 --env-file .env myspotbackup
 ```
-Make sure the URLs in your ``.env`` match how you expose the container (e.g. ``PUBLIC_URI=http://localhost:8080``).
+
+Make sure the URLs in your `.env` match how you expose the container (e.g. `PUBLIC_URI=http://localhost:8080`).
 
 ## Development
-- Lint the project: ``npm run lint`` (uses ESLint across both the frontend JS and server code).
+
+- Lint the project: `npm run lint` (uses ESLint across both the frontend JS and server code).
 
 ## Known Issues (probably already in the original):
+
 - When running this on my personal account, some of the playlists were not copied fully, some were empty on the target, but it was a good start.
 - Dates like the time a song was added to a playlist get lost
 
 ## Contributing:
+
 Some ugly code here:
+
 - we could integrate the express server functionality into the main index.html again to reduce the dependency
   - we could propose using simply http-server as dependency while still allowing other web servers
 - we could use typescript instead of js
@@ -58,9 +67,11 @@ Some ugly code here:
 - we could catch some common errors to provide help instead of crashing
 
 ## FAQ
-- Can i use localhost instead of ``youripadress``?: Yes, just use any available hostname. Make sure to also use it inside the Spotify dashboard. The only thing not working should be file:// urls.
 
-## Helpful Links 
+- Can i use localhost instead of `youripadress`?: Yes, just use any available hostname. Make sure to also use it inside the Spotify dashboard. The only thing not working should be file:// urls.
+
+## Helpful Links
+
 - https://developer.spotify.com/documentation/web-api/tutorials/code-pkce-flow
 - https://developer.spotify.com/documentation/web-api/howtos/web-app-profile
 - https://github.com/spotify/web-api-examples/tree/master/get_user_profile
