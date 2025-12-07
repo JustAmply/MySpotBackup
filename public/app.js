@@ -535,13 +535,22 @@ function handleAuth(accessToken) {
 			});
 		},
 		error: function (jqXHR, textStatus, errorThrown) {
-			console.log("Failed to fetch user profile", {
+			var errorInfo = {
 				status: jqXHR && jqXHR.status,
 				statusText: jqXHR && jqXHR.statusText,
 				responseText: jqXHR && jqXHR.responseText,
 				error: errorThrown || textStatus,
-			});
-			$("#pnlLoggedOut").html("Login failed, please try again.");
+			};
+			console.log("Failed to fetch user profile", errorInfo);
+			var readableStatus = errorInfo.status ? " (" + errorInfo.status + ")" : "";
+			var detail = errorInfo.responseText || errorInfo.error || "Unknown error";
+			$("#pnlLoggedOut").html(
+				"Login failed" +
+					readableStatus +
+					". " +
+					detail +
+					". Please verify your Spotify app settings and try again."
+			);
 			$("#login").prop("disabled", false);
 		},
 	});
