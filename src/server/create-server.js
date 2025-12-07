@@ -1,4 +1,4 @@
-const crypto = require("crypto");
+const nodeCrypto = require("crypto");
 const express = require("express");
 const helmet = require("helmet");
 const path = require("path");
@@ -20,12 +20,7 @@ const scopes = [
  * Builds an Express application configured for the Spotify auth flow.
  * Dependencies are injected to make the server easier to test and extend.
  */
-function createServer({
-	config,
-	authStateStore,
-	fetchFn = fetch,
-	cryptoLib = crypto,
-} = {}) {
+function createServer({ config, authStateStore, fetchFn = fetch, cryptoLib = nodeCrypto } = {}) {
 	if (!config) throw new Error("createServer requires a config object");
 	if (!authStateStore) throw new Error("createServer requires an authStateStore instance");
 
