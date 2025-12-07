@@ -29,6 +29,14 @@ function createServer({ config, authStateStore, fetchFn = fetch, cryptoLib = nod
 		helmet({
 			// Keep window.opener available for the OAuth popup; COOP would null it after the Spotify redirect.
 			crossOriginOpenerPolicy: false,
+			contentSecurityPolicy: {
+				useDefaults: true,
+				directives: {
+					connectSrc: ["'self'", "https://api.spotify.com"],
+					styleSrc: ["'self'", "https://fonts.googleapis.com", "'unsafe-inline'"],
+					fontSrc: ["'self'", "https://fonts.gstatic.com", "data:"],
+				},
+			},
 		})
 	);
 	const publicDir = path.join(__dirname, "..", "..", "public");
