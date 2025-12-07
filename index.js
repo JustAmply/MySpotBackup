@@ -3,18 +3,16 @@ const cryptoLib = require("crypto");
 const express = require("express");
 const helmet = require("helmet");
 const { stringify } = require("querystring");
+const { loadConfig } = require("./lib/config");
+const AuthStateStore = require("./lib/auth-state-store");
 
-const port = Number(process.env.PORT || 8080);
-const baseUri = process.env.PUBLIC_URI || `http://localhost:${port}`;
-const config = {
-	port,
-	uri: baseUri,
-	login_url: `${baseUri}/login`,
-	callback_uri: `${baseUri}/callback`,
-	client_id: process.env.CLIENT_ID || "",
-	slowdown_import: Number(process.env.SLOWDOWN_IMPORT || 100),
-	slowdown_export: Number(process.env.SLOWDOWN_EXPORT || 100),
-};
+let config;
+try {
+	config = loadConfig(process.env);
+} catch (error) {
+	console.error("Invalid configuration:", error.message);
+	process.exit(1);
+}
 const scopes = [
 	"user-read-private",
 	"user-read-email",
@@ -25,49 +23,15 @@ const scopes = [
 	"user-library-read",
 	"user-library-modify",
 ];
-const authStateStore = new Map();
 const AUTH_STATE_TTL_MS = 5 * 60 * 1000;
 const AUTH_STATE_SWEEP_MS = 60 * 1000;
+const authStateStore = new AuthStateStore({
+	ttlMs: AUTH_STATE_TTL_MS,
+	sweepMs: AUTH_STATE_SWEEP_MS,
+});
 
 const app = express();
 app.use(helmet());
-
-function validateUri(value) {
-	try {
-		new URL(value);
-		return true;
-	} catch {
-		return false;
-	}
-}
-
-function validateConfig(cfg) {
-	const missingClientId =
-		!cfg.client_id || typeof cfg.client_id !== "string" || cfg.client_id.trim() === "";
-	const invalidUri = !cfg.uri || !validateUri(cfg.uri);
-	const invalidPort = Number.isNaN(cfg.port) || cfg.port <= 0 || cfg.port % 1 !== 0;
-	const invalidSlowdownImport = Number.isNaN(cfg.slowdown_import) || cfg.slowdown_import < 0;
-	const invalidSlowdownExport = Number.isNaN(cfg.slowdown_export) || cfg.slowdown_export < 0;
-
-	if (
-		missingClientId ||
-		invalidUri ||
-		invalidPort ||
-		invalidSlowdownImport ||
-		invalidSlowdownExport
-	) {
-		const issues = [];
-		if (missingClientId) issues.push("CLIENT_ID must be set");
-		if (invalidUri) issues.push("PUBLIC_URI must be a valid URL");
-		if (invalidPort) issues.push("PORT must be a positive integer");
-		if (invalidSlowdownImport) issues.push("SLOWDOWN_IMPORT must be a non-negative number");
-		if (invalidSlowdownExport) issues.push("SLOWDOWN_EXPORT must be a non-negative number");
-		console.error("Invalid configuration:", issues.join("; "));
-		process.exit(1);
-	}
-}
-
-validateConfig(config);
 
 function generateRandomString(length) {
 	return cryptoLib.randomBytes(length).toString("base64url").slice(0, length);
@@ -80,15 +44,6 @@ async function generateCodeChallenge(codeVerifier) {
 
 app.use(express.static("public"));
 
-setInterval(() => {
-	const now = Date.now();
-	for (const [state, value] of authStateStore.entries()) {
-		if (!value || now - value.createdAt > AUTH_STATE_TTL_MS) {
-			authStateStore.delete(state);
-		}
-	}
-}, AUTH_STATE_SWEEP_MS).unref();
-
 app.get("/login", async function (req, res) {
 	if (!config.client_id) {
 		res.status(500).send("Missing CLIENT_ID configuration");
@@ -98,7 +53,7 @@ app.get("/login", async function (req, res) {
 	const codeVerifier = generateRandomString(128);
 	const state = generateRandomString(16);
 
-	authStateStore.set(state, { codeVerifier, createdAt: Date.now() });
+	authStateStore.storeState(state, codeVerifier);
 
 	res.redirect(
 		"https://accounts.spotify.com/authorize?" +
@@ -121,27 +76,29 @@ app.get("/config", function (req, res) {
 app.get("/callback", async function (req, res) {
 	const code = req.query.code || null;
 	const state = req.query.state || null;
-	const stored = state ? authStateStore.get(state) : null;
-	const isExpired = stored && Date.now() - stored.createdAt > AUTH_STATE_TTL_MS;
 
 	if (!code) {
 		res.redirect("/#" + stringify({ error: "missing_code" }));
 		return;
 	}
 
-	if (state === null || !stored) {
+	if (!state) {
 		res.status(400).send("OAuth state is missing or invalid. Please restart the login flow.");
 		return;
 	}
 
-	if (isExpired) {
-		authStateStore.delete(state);
+	const { status, entry } = authStateStore.take(state);
+	if (status === "missing") {
+		res.status(400).send("OAuth state is missing or invalid. Please restart the login flow.");
+		return;
+	}
+
+	if (status === "expired") {
 		res.status(400).send("OAuth state is expired. Please restart the login flow.");
 		return;
 	}
 
-	authStateStore.delete(state);
-	const { token, error } = await getAccessToken(code, stored.codeVerifier);
+	const { token, error } = await getAccessToken(code, entry.codeVerifier);
 	if (error) {
 		res
 			.status(400)
