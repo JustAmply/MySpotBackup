@@ -295,6 +295,29 @@ function isValidTrackUri(uri) {
 	return typeof uri === "string" && /^spotify:track:[A-Za-z0-9]{22}$/.test(uri);
 }
 
+function processWithLimit(queue, limit, worker, done) {
+	var active = 0;
+	function launchNext() {
+		if (!queue.length && active === 0) {
+			done();
+			return;
+		}
+		while (active < limit && queue.length) {
+			var item = queue.pop();
+			active += 1;
+			worker(item, function () {
+				active -= 1;
+				if (conf.slowdown_import > 0) {
+					setTimeout(launchNext, conf.slowdown_import);
+				} else {
+					launchNext();
+				}
+			});
+		}
+	}
+	launchNext();
+}
+
 function chunkItems(items, chunkSize) {
 	var batches = [];
 	for (var i = 0; i < items.length; i += chunkSize) {
@@ -319,6 +342,45 @@ function buildPlaylistBatches(queue) {
 	});
 
 	return batches;
+}
+
+function parseRetryAfter(headerValue) {
+	if (!headerValue) return null;
+	var seconds = parseInt(headerValue, 10);
+	if (!isNaN(seconds) && seconds >= 0) {
+		return seconds * 1000;
+	}
+	return null;
+}
+
+function sendWithRetry(options, done) {
+	var attempts = 0;
+	function run(delayMs) {
+		if (delayMs && delayMs > 0) {
+			setTimeout(doSend, delayMs);
+		} else {
+			doSend();
+		}
+	}
+	function doSend() {
+		attempts += 1;
+		$.ajax(options)
+			.done(function () {
+				done();
+			})
+			.fail(function (jqXHR, textStatus, errorThrown) {
+				if (jqXHR && jqXHR.status === 429) {
+					var retryMs = parseRetryAfter(jqXHR.getResponseHeader("Retry-After"));
+					var backoff = retryMs !== null ? retryMs : Math.min(30000, 500 * attempts);
+					console.log("Hit rate limit, retrying in", backoff, "ms");
+					run(backoff);
+					return;
+				}
+				console.log("Request failed", errorThrown || textStatus);
+				done();
+			});
+	}
+	run(0);
 }
 
 function handlePlaylistCompare(ids, callback) {
@@ -431,10 +493,14 @@ function addToStarred(trackUri) {
 }
 
 function handleSavedRequests(arr, callback) {
-	var ids = arr.pop();
-	if (ids) {
+	if (!arr.length) {
+		callback();
+		return;
+	}
+	processWithLimit(arr, 4, function (ids, done) {
 		trackStep += ids.length;
-		$.ajax({
+		console.log("Uploading saved batch", ids.length);
+		sendWithRetry({
 			method: "PUT",
 			url: "https://api.spotify.com/v1/me/tracks",
 			data: JSON.stringify({ ids: ids }),
@@ -442,31 +508,19 @@ function handleSavedRequests(arr, callback) {
 			headers: {
 				Authorization: "Bearer " + token,
 			},
-			success: function () {},
-			error: function (jqXHR, textStatus, errorThrown) {
-				console.log("Failed to save track", errorThrown || textStatus);
-				globalStep = "Failed saving some tracks";
-			},
-		}).always(function () {
-			handleSavedRequests(arr, callback);
-		});
-	} else {
-		callback();
-	}
-}
-
-function handlePlaylistRequestsWithTimeout(arr, callback) {
-	setTimeout(function () {
-		console.log("Fast runners are dead runners");
-		handlePlaylistRequests(arr, callback);
-	}, conf.slowdown_import);
+		}, done);
+	}, callback);
 }
 
 function handlePlaylistRequests(arr, callback) {
-	var batch = arr.pop();
-	if (batch) {
+	if (!arr.length) {
+		callback();
+		return;
+	}
+	processWithLimit(arr, 3, function (batch, done) {
 		trackStep += batch.uris.length;
-		$.ajax({
+		console.log("Uploading playlist batch", batch.playlistId, batch.uris.length);
+		sendWithRetry({
 			method: "POST",
 			url:
 				"https://api.spotify.com/v1/users/" +
@@ -479,22 +533,8 @@ function handlePlaylistRequests(arr, callback) {
 			headers: {
 				Authorization: "Bearer " + token,
 			},
-			success: function () {
-				// collections.playlists[response.name] = {
-				//     id: response.id,
-				//     uri: response.uri
-				// };
-			},
-			error: function (jqXHR, textStatus, errorThrown) {
-				console.log("Failed to add track to playlist", errorThrown || textStatus);
-				globalStep = "Failed adding some tracks";
-			},
-		}).always(function () {
-			handlePlaylistRequestsWithTimeout(arr, callback);
-		});
-	} else {
-		callback();
-	}
+		}, done);
+	}, callback);
 }
 
 function uriInTracks(uri, tracks, addCallback) {
