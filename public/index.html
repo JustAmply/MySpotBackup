@@ -264,7 +264,7 @@
             $('#trackTotal').html(trackTotal);
             var progress = 0;
             if (trackTotal > 0) {
-                var progress = Math.floor(((trackStep / trackTotal) * 100));
+                progress = Math.floor(((trackStep / trackTotal) * 100));
             }
             $('#progressBar').css('width', progress + '%')
             if (typeof collections !== 'undefined' && !makingChanges) {
@@ -354,12 +354,15 @@
         }
 
         function collectionProperties(coll) {
+            if (!coll || !coll.playlists) {
+                return { playlistCount: 0, trackCount: 0 };
+            }
             return { playlistCount: collPlaylistCount(coll), trackCount: collTrackCount(coll) };
         }
 
         function collTrackCount(coll) {
             var count = 0;
-            var keys = _.keys(coll.playlists);
+            var keys = _.keys(coll.playlists || {});
             $.each(keys, function (index, value) {
                 count += coll.playlists[value].tracks.length;
             });
@@ -373,9 +376,9 @@
         }
 
         function collPlaylistCount(coll) {
-            var keys = _.keys(coll.playlists);
-            var count = keys.length + 1;
-            if (!("importedStarred" in keys)) {
+            var keys = _.keys(coll.playlists || {});
+            var count = keys.length;
+            if (!keys.includes('importedStarred')) {
                 count++;
             }
             return count;
@@ -401,15 +404,15 @@
 
                     makeSureImportedStarredExists(function (proceed) {
                         if (importColl.starred && importColl.starred.length > 0) {
-                            compareUriTracks(importColl.starred, collections.starred, addToStarred);
+                            compareUriTracks(importColl.starred, collections.starred || [], addToStarred);
                         }
                         // compare saved
                         globalStep = "Comparing saved tracks";
-                        compareIdTracks(importColl.saved, collections.saved, addToSaved);
+                        compareIdTracks(importColl.saved || [], collections.saved || [], addToSaved);
                         playlistStep += 1;
 
                         // compare other playlists
-                        var playlistNames = _.keys(importColl.playlists);
+                        var playlistNames = _.keys(importColl.playlists || {});
                         globalStep = "Comparing custom playlists";
                         handlePlaylistCompare(playlistNames.reverse(), function () {
                             handleTrackUpload();
@@ -421,9 +424,9 @@
 
         function handleTrackUpload() {
 
-            trackDiff = savedQueue.length + playlistQueue.length;
-            trackTotal = Math.max(collTrackCount(importColl), trackDiff);
-            trackStep = trackTotal - trackDiff;
+            var trackDiff = savedQueue.length + playlistQueue.length;
+            trackTotal = trackDiff;
+            trackStep = 0;
 
 
             if (trackTotal > 0) {
@@ -487,7 +490,9 @@
                     };
                     callback(true);
                 },
-                fail: function () {
+                error: function (jqXHR, textStatus, errorThrown) {
+                    console.log("Failed to create playlist", name, errorThrown || textStatus);
+                    globalStep = "Failed to create playlist " + name;
                     callback(false);
                 }
             });
@@ -516,10 +521,10 @@
                     headers: {
                         'Authorization': 'Bearer ' + token
                     },
-                    success: function () {
-                    },
-                    fail: function (jqXHR, textStatus, errorThrown) {
-                        console.log(errorThrown);
+                    success: function () {},
+                    error: function (jqXHR, textStatus, errorThrown) {
+                        console.log("Failed to save track", errorThrown || textStatus);
+                        globalStep = "Failed saving some tracks";
                     }
                 })
                     .always(function () {
@@ -555,8 +560,9 @@
                         //     uri: response.uri
                         // };
                     },
-                    fail: function (jqXHR, textStatus, errorThrown) {
-                        console.log(errorThrown);
+                    error: function (jqXHR, textStatus, errorThrown) {
+                        console.log("Failed to add track to playlist", errorThrown || textStatus);
+                        globalStep = "Failed adding some tracks";
                     }
                 })
                     .always(function () {
@@ -645,6 +651,11 @@
                     refreshTrackData(function () {
                         $('#pnlAction').show();
                     });
+                },
+                error: function (jqXHR, textStatus, errorThrown) {
+                    console.log("Failed to fetch user profile", errorThrown || textStatus);
+                    $('#pnlLoggedOut').html('Login failed, please try again.');
+                    $('#login').prop('disabled', false);
                 }
             });
         }
@@ -655,7 +666,7 @@
             loadTrackChunks('https://api.spotify.com/v1/me/tracks', collections.saved, callback);
         }
 
-        function loadTrackChunksWithTimeout(url, arr, callback, timeout) {
+        function loadTrackChunksWithTimeout(url, arr, callback) {
             setTimeout(function () {
                 console.log("Taking breath, not to fast my cheetah");
                 loadTrackChunks(url, arr, callback)
@@ -686,6 +697,11 @@
                     } else {
                         callback();
                     }
+                },
+                error: function (jqXHR, textStatus, errorThrown) {
+                    console.log("Failed to load tracks", errorThrown || textStatus);
+                    globalStep = "Failed to load tracks";
+                    callback();
                 }
             });
         }
@@ -722,7 +738,7 @@
                             arr.push({
                                 name: data.name,
                                 href: data.tracks.href,
-                                id: value.id,
+                                id: data.id,
                                 tracks: []
                             });
                         }
@@ -732,6 +748,11 @@
                     } else {
                         callback();
                     }
+                },
+                error: function (jqXHR, textStatus, errorThrown) {
+                    console.log("Failed to load playlists", errorThrown || textStatus);
+                    globalStep = "Failed to load playlists";
+                    callback();
                 }
             });
         }
