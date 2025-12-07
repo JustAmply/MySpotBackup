@@ -115,6 +115,10 @@ function authCallback(event) {
         console.log({ uri: conf.uri, origin: event.origin });
         return;
     }
+    if (authWindow && event.source !== authWindow) {
+        console.log("Ignoring message from unexpected source window.");
+        return;
+    }
     if (event.data.token) {
         if (authWindow) {
             authWindow.close();

@@ -1,6 +1,7 @@
 require('dotenv').config();
 const cryptoLib = require('crypto');
 const express = require('express');
+const helmet = require('helmet');
 const {stringify} = require('querystring');
 
 const port = Number(process.env.PORT || 8080);
@@ -29,6 +30,7 @@ const AUTH_STATE_TTL_MS = 5 * 60 * 1000;
 const AUTH_STATE_SWEEP_MS = 60 * 1000;
 
 const app = express();
+app.use(helmet());
 
 function validateUri(value) {
     try {
@@ -135,7 +137,17 @@ app.get('/callback', async function (req, res) {
         res.status(400).send(`Error during getAccessToken: ${error}. Restart your session and try again. <a href="/">Home Page</a>`);
         return;
     }
-    res.send(`Congrats! Your Code is <br/>  ${code} <br/> and the token is <br/> ${token}<br/> , submitting to parent page now.` + `<script type='text/javascript'>window.onload = () => { console.log("posting", "${{token}}", "${config.uri}"); window.opener.postMessage({token:"${token}"}, "${config.uri}");}</script>`);
+    res.set('Cache-Control', 'no-store, max-age=0');
+    res.send(
+        "<!doctype html><html><body><script>" +
+        "window.onload = () => {" +
+        "  if (window.opener && !window.opener.closed) {" +
+        `    window.opener.postMessage({token:"${token}"}, "${config.uri}");` +
+        "  }" +
+        "  window.close();" +
+        "};" +
+        "</script></body></html>"
+    );
 });
 
 async function getAccessToken(code, codeVerifier) {
