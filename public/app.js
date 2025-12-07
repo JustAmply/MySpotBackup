@@ -265,15 +265,18 @@ function compareEverything() {
 }
 
 function handleTrackUpload() {
-	var trackDiff = savedQueue.length + playlistQueue.length;
-	trackTotal = trackDiff;
+	var savedBatches = chunkItems(savedQueue, 50);
+	var playlistBatches = buildPlaylistBatches(playlistQueue);
+	trackTotal = savedQueue.length + playlistQueue.length;
 	trackStep = 0;
+	savedQueue = [];
+	playlistQueue = [];
 
 	if (trackTotal > 0) {
 		$("#progressBar").show();
 		globalStep = "Uploading tracks";
-		handleSavedRequests(savedQueue.reverse(), function () {
-			handlePlaylistRequests(playlistQueue.reverse(), function () {
+		handleSavedRequests(savedBatches.reverse(), function () {
+			handlePlaylistRequests(playlistBatches.reverse(), function () {
 				globalStep = "Finished uploading";
 				trackTotal = trackStep;
 				isImporting = false;
@@ -282,6 +285,32 @@ function handleTrackUpload() {
 	} else {
 		globalStep = "No new tracks found in import";
 	}
+}
+
+function chunkItems(items, chunkSize) {
+	var batches = [];
+	for (var i = 0; i < items.length; i += chunkSize) {
+		batches.push(items.slice(i, i + chunkSize));
+	}
+	return batches;
+}
+
+function buildPlaylistBatches(queue) {
+	var byPlaylist = {};
+	$.each(queue, function (_index, item) {
+		byPlaylist[item.playlistId] = byPlaylist[item.playlistId] || [];
+		byPlaylist[item.playlistId].push(item.uri);
+	});
+
+	var batches = [];
+	$.each(byPlaylist, function (playlistId, uris) {
+		var chunks = chunkItems(uris, 100);
+		$.each(chunks, function (_i, chunk) {
+			batches.push({ playlistId: playlistId, uris: chunk });
+		});
+	});
+
+	return batches;
 }
 
 function handlePlaylistCompare(ids, callback) {
@@ -302,14 +331,7 @@ function handlePlaylistCompare(ids, callback) {
 }
 
 function addToPlaylist(playlistId, trackUri) {
-	playlistQueue.push(
-		"https://api.spotify.com/v1/users/" +
-			userId +
-			"/playlists/" +
-			playlistId +
-			"/tracks?uris=" +
-			encodeURIComponent(trackUri)
-	);
+	playlistQueue.push({ playlistId: playlistId, uri: trackUri });
 }
 
 function findPlaylistByName(name) {
@@ -397,12 +419,14 @@ function addToStarred(trackUri) {
 }
 
 function handleSavedRequests(arr, callback) {
-	var url = arr.pop();
-	if (url) {
-		trackStep += 1;
+	var ids = arr.pop();
+	if (ids) {
+		trackStep += ids.length;
 		$.ajax({
 			method: "PUT",
-			url: url,
+			url: "https://api.spotify.com/v1/me/tracks",
+			data: JSON.stringify({ ids: ids }),
+			contentType: "application/json",
 			headers: {
 				Authorization: "Bearer " + token,
 			},
@@ -427,12 +451,18 @@ function handlePlaylistRequestsWithTimeout(arr, callback) {
 }
 
 function handlePlaylistRequests(arr, callback) {
-	var url = arr.pop();
-	if (url) {
-		trackStep += 1;
+	var batch = arr.pop();
+	if (batch) {
+		trackStep += batch.uris.length;
 		$.ajax({
 			method: "POST",
-			url: url,
+			url:
+				"https://api.spotify.com/v1/users/" +
+				userId +
+				"/playlists/" +
+				batch.playlistId +
+				"/tracks",
+			data: JSON.stringify({ uris: batch.uris }),
 			contentType: "application/json",
 			headers: {
 				Authorization: "Bearer " + token,
@@ -468,7 +498,7 @@ function uriInTracks(uri, tracks, addCallback) {
 }
 
 function addToSaved(id) {
-	savedQueue.push("https://api.spotify.com/v1/me/tracks?ids=" + id);
+	savedQueue.push(id);
 }
 
 function compareUriTracks(imported, stored, addCallback) {
