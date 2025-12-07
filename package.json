@@ -10,7 +10,7 @@
     "eslint": "^9.39.1"
   },
   "scripts": {
-    "serve-express": "node index.js",
+    "dev": "node index.js",
     "lint": "eslint .",
     "test": "npm run lint",
     "deps:update": "npm update --save",
