@@ -35,6 +35,7 @@ function createServer({ config, authStateStore, fetchFn = fetch, cryptoLib = nod
 					connectSrc: ["'self'", "https://api.spotify.com"],
 					styleSrc: ["'self'", "https://fonts.googleapis.com", "'unsafe-inline'"],
 					fontSrc: ["'self'", "https://fonts.gstatic.com", "data:"],
+					scriptSrc: ["'self'", "'unsafe-inline'"],
 				},
 			},
 		})
