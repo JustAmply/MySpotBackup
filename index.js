@@ -1,9 +1,24 @@
-const crypto = require('crypto')
-const express = require('express')
-const {stringify} = require("querystring");
-const config = require("./public/config")
+const fs = require('fs');
+const path = require('path');
+const crypto = require('crypto');
+const express = require('express');
+const {stringify} = require('querystring');
 
-const app = express()
+loadEnvFile();
+
+const port = Number(process.env.PORT || 8080);
+const baseUri = process.env.PUBLIC_URI || `http://localhost:${port}`;
+const config = {
+    port,
+    uri: baseUri,
+    login_url: `${baseUri}/login`,
+    callback_uri: `${baseUri}/callback`,
+    client_id: process.env.CLIENT_ID || '',
+    slowdown_import: Number(process.env.SLOWDOWN_IMPORT || 100),
+    slowdown_export: Number(process.env.SLOWDOWN_EXPORT || 100),
+};
+
+const app = express();
 const codeVerifier = generateRandomString(128);
 
 function generateRandomString(length) {
@@ -25,7 +40,7 @@ async function generateCodeChallenge(codeVerifier) {
         .replace(/=+$/, '');
 }
 
-app.use(express.static('public'))
+app.use(express.static('public'));
 
 app.get('/login', async function (req, res) {
     res.redirect('https://accounts.spotify.com/authorize?' + stringify({
@@ -39,6 +54,9 @@ app.get('/login', async function (req, res) {
     }));
 });
 
+app.get('/config', function (req, res) {
+    res.json(config);
+});
 
 app.get('/callback', async function (req, res) {
 
@@ -76,7 +94,33 @@ async function getAccessToken(code) {
     return {token: access_token, error};
 }
 
+function loadEnvFile() {
+    const envPath = path.join(__dirname, '.env');
+    if (!fs.existsSync(envPath)) {
+        return;
+    }
+
+    const lines = fs.readFileSync(envPath, 'utf-8').split(/\r?\n/);
+    for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed.startsWith('#')) {
+            continue;
+        }
+
+        const separatorIndex = trimmed.indexOf('=');
+        if (separatorIndex === -1) {
+            continue;
+        }
+
+        const key = trimmed.slice(0, separatorIndex).trim();
+        const value = trimmed.slice(separatorIndex + 1).trim();
+        if (key && !(key in process.env)) {
+            process.env[key] = value;
+        }
+    }
+}
+
 
 app.listen(config.port, () => {
     console.log(`MySpotBackup is running`, config);
-})
+});

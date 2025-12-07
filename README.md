@@ -22,14 +22,22 @@ There was a small issue with the authentication process, which i fixed using an 
    -  Redirect URIs : http://youripaddress:8080/callback
    - In the User Management, add your second (new/old) account as well
      - Second user might need to login into dashboard one time as well to confirm terms and conditions
-4) Copy ``public/config.example.js`` to ``public/config.js`` and edit it to reflect the same settings and the right client id
-4) Run ``npm serve-express`` (equal to running ``node index.js``, see package.json)
+4) Copy ``.env.example`` to ``.env`` and set the values (at minimum ``CLIENT_ID`` and ``PUBLIC_URI`` to match your deployment); the frontend reads these via the server so no additional config.js is needed
+4) Run ``npm run serve-express`` (equal to running ``node index.js``, see package.json)
 5) Click Login on old account
 6) Export File
 7) Open in incognito window
 8) Click login on new account
 9) Import File
 10) Done
+
+## Docker
+Build and run locally:
+```
+docker build -t myspotbackup .
+docker run --rm -p 8080:8080 --env-file .env myspotbackup
+```
+Make sure the URLs in your ``.env`` match how you expose the container (e.g. ``PUBLIC_URI=http://localhost:8080``).
 
 ## Known Issues (probably already in the original):
 - When running this on my personal account, some of the playlists were not copied fully, some were empty on the target, but it was a good start.
@@ -47,7 +55,6 @@ Some ugly code here:
 - we could catch some common errors to provide help instead of crashing
 
 ## FAQ
-- I get the error ``Error: Cannot find module './public/config'``: You forgot to create a copy of ``public/config.example.js`` (file name ``public/config.js``)
 - Can i use localhost instead of ``youripadress``?: Yes, just use any available hostname. Make sure to also use it inside the Spotify dashboard. The only thing not working should be file:// urls.
 
 ## Helpful Links 
