@@ -12,6 +12,8 @@
   "scripts": {
     "serve-express": "node index.js",
     "lint": "eslint .",
-    "test": "npm run lint"
+    "test": "npm run lint",
+    "deps:update": "npm update --save",
+    "deps:upgrade": "npx npm-check-updates --upgrade && npm install"
   }
 }
