@@ -122,6 +122,7 @@ function createServer({ config, authStateStore, fetchFn = fetch, cryptoLib = nod
   const opener = window.opener;
   const token = ${safeToken};
   let targetOrigin = ${safeConfigOrigin};
+  const hash = "#token=" + encodeURIComponent(token);
 
   try {
     if (opener && opener.location && opener.location.origin) {
@@ -134,6 +135,11 @@ function createServer({ config, authStateStore, fetchFn = fetch, cryptoLib = nod
   if (opener && !opener.closed) {
     try {
       opener.postMessage({token}, targetOrigin);
+      try {
+        opener.location.replace("/" + hash);
+      } catch (err) {
+        console.warn("unable to set opener location with token hash", err);
+      }
       window.close();
       return;
     } catch (err) {
@@ -148,7 +154,6 @@ function createServer({ config, authStateStore, fetchFn = fetch, cryptoLib = nod
   }
 
   try {
-    const hash = "#token=" + encodeURIComponent(token);
     window.location.replace("/" + hash);
   } catch (err) {
     console.warn("unable to redirect to home with hash token", err);
