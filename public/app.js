@@ -686,49 +686,6 @@ function consumeStoredToken() {
 	return takeFromStorage(sessionStorage) || takeFromStorage(localStorage);
 }
 
-function consumeCookieToken() {
-	try {
-		var cookies = document.cookie ? document.cookie.split(";") : [];
-		for (var i = 0; i < cookies.length; i++) {
-			var c = cookies[i].trim();
-			if (c.indexOf(STORED_TOKEN_KEY + "=") === 0) {
-				var value = decodeURIComponent(c.substring(STORED_TOKEN_KEY.length + 1));
-				// delete cookie by expiring it
-				document.cookie = STORED_TOKEN_KEY + "=; Max-Age=0; Path=/; SameSite=Lax";
-				return value;
-			}
-		}
-	} catch (error) {
-		console.log("Unable to read cookie token", error);
-	}
-	return null;
-}
-
-function consumeHashToken() {
-	var hash = window.location.hash || "";
-	if (!hash || hash.length < 2) return null;
-	// hash like #token=abc or #token=abc&something=else
-	var params = new URLSearchParams(hash.slice(1));
-	var hashToken = params.get("token");
-	if (hashToken) {
-		// remove the token from the URL so it isn't kept in history
-		try {
-			params.delete("token");
-			var newHash = params.toString();
-			if (typeof window.history.replaceState === "function") {
-				var cleanedHash = newHash ? "#" + newHash : "";
-				window.history.replaceState(null, document.title, window.location.pathname + cleanedHash);
-			} else {
-				window.location.hash = newHash;
-			}
-		} catch (error) {
-			console.log("Unable to clean hash token", error);
-		}
-		return hashToken;
-	}
-	return null;
-}
-
 function handleStorageToken(event) {
 	if (event.key !== STORED_TOKEN_KEY || !event.newValue) return;
 	var storedToken = consumeStoredToken();
@@ -753,18 +710,6 @@ window.onload = async function () {
 		window.addEventListener("storage", handleStorageToken, false);
 		bindControls();
 		refreshProgress();
-
-		var hashToken = consumeHashToken();
-		if (hashToken) {
-			handleAuth(hashToken);
-			return;
-		}
-
-		var cookieToken = consumeCookieToken();
-		if (cookieToken) {
-			handleAuth(cookieToken);
-			return;
-		}
 
 		var storedToken = consumeStoredToken();
 		if (storedToken) {

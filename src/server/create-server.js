@@ -106,13 +106,8 @@ function createServer({ config, authStateStore, fetchFn = fetch, cryptoLib = nod
 		const safeConfigOrigin = JSON.stringify(config.uri);
 		const safeToken = JSON.stringify(token);
 		const storageKey = "myspotbackup_token";
-		const fallbackHtml = `<p>Login complete. You can close this window.</p><p>If it does not close automatically, return to the original tab.</p><p>If nothing happens, <a href="/#token=${encodeURIComponent(
-			token
-		)}">click here to continue</a>.</p>`;
-		const cookie = buildTokenCookie(token, config);
-		if (cookie) {
-			res.append("Set-Cookie", cookie);
-		}
+		const fallbackHtml =
+			"<p>Login complete. You can close this window.</p><p>If it does not close automatically, return to the original tab.</p>";
 		res.send(
 			"<!doctype html><html><body><script>" +
 				`window.onload = () => {
@@ -148,14 +143,6 @@ function createServer({ config, authStateStore, fetchFn = fetch, cryptoLib = nod
     sessionStorage.setItem(${JSON.stringify(storageKey)}, token);
   } catch (err) {
     console.warn("unable to persist token in sessionStorage", err);
-  }
-
-  try {
-    const hash = "#token=" + encodeURIComponent(token);
-    window.location.replace("/" + hash);
-    return;
-  } catch (err) {
-    console.warn("unable to redirect to home with hash token", err);
   }
 
   try {
@@ -212,23 +199,9 @@ async function getAccessToken({ code, codeVerifier, config, fetchFn }) {
 	return { token: access_token, error };
 }
 
-function buildTokenCookie(token, config) {
-	if (!token) return null;
-	const parts = [];
-	parts.push(`myspotbackup_token=${encodeURIComponent(token)}`);
-	parts.push("Path=/");
-	parts.push("SameSite=Lax");
-	if (config && typeof config.uri === "string" && config.uri.startsWith("https://")) {
-		parts.push("Secure");
-	}
-	parts.push("Max-Age=3600");
-	return parts.join("; ");
-}
-
 module.exports = {
 	createServer,
 	generateRandomString,
 	generateCodeChallenge,
 	getAccessToken,
-	buildTokenCookie,
 };
