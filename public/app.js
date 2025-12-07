@@ -544,12 +544,15 @@ function handleAuth(accessToken) {
 			console.log("Failed to fetch user profile", errorInfo);
 			var readableStatus = errorInfo.status ? " (" + errorInfo.status + ")" : "";
 			var detail = errorInfo.responseText || errorInfo.error || "Unknown error";
+			if (detail && !/[.!?]\s*$/.test(detail)) {
+				detail += ".";
+			}
 			$("#pnlLoggedOut").html(
 				"Login failed" +
 					readableStatus +
 					". " +
 					detail +
-					". Please verify your Spotify app settings and try again."
+					" Please verify your Spotify app settings and try again."
 			);
 			$("#login").prop("disabled", false);
 		},
