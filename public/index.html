@@ -212,6 +212,7 @@
         var playlistQueue = [];
         var savedQueue = [];
 
+        var importPlaylistNameCounts = {};
         var makingChanges = false;
 
         async function loadConfig() {
@@ -362,9 +363,9 @@
 
         function collTrackCount(coll) {
             var count = 0;
-            var keys = _.keys(coll.playlists || {});
-            $.each(keys, function (index, value) {
-                count += coll.playlists[value].tracks.length;
+            var playlists = _.values(coll.playlists || {});
+            $.each(playlists, function (index, playlist) {
+                count += (playlist.tracks || []).length;
             });
             if (coll.starred) {
                 count += coll.starred.length;
@@ -376,9 +377,12 @@
         }
 
         function collPlaylistCount(coll) {
-            var keys = _.keys(coll.playlists || {});
-            var count = keys.length;
-            if (!keys.includes('importedStarred')) {
+            var playlists = coll.playlists || {};
+            var count = _.keys(playlists).length;
+            var hasImportedStarred = _.some(playlists, function (value) {
+                return value.name === 'importedStarred';
+            });
+            if (!hasImportedStarred) {
                 count++;
             }
             return count;
@@ -396,6 +400,12 @@
                 globalStep = "Uploading";
                 if (typeof importColl !== 'undefined') {
 
+                    importPlaylistNameCounts = {};
+                    _.each(importColl.playlists || {}, function (playlist) {
+                        var playlistName = playlist.name || '';
+                        importPlaylistNameCounts[playlistName] = (importPlaylistNameCounts[playlistName] || 0) + 1;
+                    });
+
                     playlistTotal = collPlaylistCount(importColl);
 
                     // TONOTDO:compare starred -> can not really do that since there is no api to manipulate those
@@ -412,9 +422,9 @@
                         playlistStep += 1;
 
                         // compare other playlists
-                        var playlistNames = _.keys(importColl.playlists || {});
+                        var playlistIds = _.keys(importColl.playlists || {});
                         globalStep = "Comparing custom playlists";
-                        handlePlaylistCompare(playlistNames.reverse(), function () {
+                        handlePlaylistCompare(playlistIds.reverse(), function () {
                             handleTrackUpload();
                         });
                     });
@@ -444,20 +454,20 @@
             }
         }
 
-        function handlePlaylistCompare(names, callback) {
-            var name = names.pop();
-            if (!name) {
+        function handlePlaylistCompare(ids, callback) {
+            var importPlaylistId = ids.pop();
+            if (!importPlaylistId) {
                 callback();
                 return;
             }
-            makeSurePlaylistExists(name, function (proceed) {
-                if (proceed) {
-                    var playlistId = collections.playlists[name].id;
-                    compareUriTracks(importColl.playlists[name].tracks, collections.playlists[name].tracks, function (uri) {
-                        addToPlaylist(playlistId, uri);
+            var importPlaylist = importColl.playlists[importPlaylistId];
+            ensurePlaylistExists(importPlaylist, function (playlist) {
+                if (playlist && importPlaylist) {
+                    compareUriTracks(importPlaylist.tracks, playlist.tracks, function (uri) {
+                        addToPlaylist(playlist.id, uri);
                     });
                 }
-                handlePlaylistCompare(names, callback);
+                handlePlaylistCompare(ids, callback);
             });
         }
 
@@ -465,12 +475,43 @@
             playlistQueue.push('https://api.spotify.com/v1/users/' + userId + '/playlists/' + playlistId + '/tracks?uris=' + encodeURIComponent(trackUri));
         }
 
-        function makeSurePlaylistExists(name, callback) {
+        function findPlaylistByName(name) {
+            var match = null;
+            $.each(collections.playlists || {}, function (_id, playlist) {
+                if (playlist.name === name && !match) {
+                    match = playlist;
+                }
+            });
+            return match;
+        }
+
+        function ensurePlaylistExists(sourcePlaylist, callback) {
             playlistStep += 1;
-            if (name in collections.playlists) {
-                callback(true);
+            if (!sourcePlaylist) {
+                callback(null);
                 return;
             }
+
+            var existingByOrigin = null;
+            $.each(collections.playlists || {}, function (_id, playlist) {
+                if (playlist.originId && sourcePlaylist.id && playlist.originId === sourcePlaylist.id) {
+                    existingByOrigin = playlist;
+                }
+            });
+            if (existingByOrigin) {
+                callback(existingByOrigin);
+                return;
+            }
+
+            var name = sourcePlaylist.name || 'Imported playlist';
+            var existingByName = findPlaylistByName(name);
+            var isNameDuplicatedInImport = (importPlaylistNameCounts[name] || 0) > 1;
+
+            if (existingByName && !isNameDuplicatedInImport) {
+                callback(existingByName);
+                return;
+            }
+
             var set = { name: name, public: "true" };
             $.ajax({
                 method: "POST",
@@ -481,33 +522,37 @@
                     'Authorization': 'Bearer ' + token
                 },
                 success: function (response) {
-                    // alert(JSON.stringify(response));
-                    collections.playlists[response.name] = {
+                    collections.playlists[response.id] = {
                         name: response.name,
                         href: response.tracks.href,
                         id: response.id,
-                        tracks: []
+                        tracks: [],
+                        originId: sourcePlaylist.id || null
                     };
-                    callback(true);
+                    callback(collections.playlists[response.id]);
                 },
                 error: function (jqXHR, textStatus, errorThrown) {
                     console.log("Failed to create playlist", name, errorThrown || textStatus);
                     globalStep = "Failed to create playlist " + name;
-                    callback(false);
+                    callback(null);
                 }
             });
         }
 
         function makeSureImportedStarredExists(callback) {
-            var name = 'importedStarred';
-            makeSurePlaylistExists(name, callback);
+            ensurePlaylistExists({ id: 'importedStarred', name: 'importedStarred', tracks: [] }, function (playlist) {
+                callback(!!playlist);
+            });
         }
 
         function addToStarred(trackUri) {
-            var name = 'importedStarred';
-            var playlistId = collections.playlists[name].id;
-            uriInTracks(trackUri, collections.playlists[name].tracks, function (uri) {
-                addToPlaylist(playlistId, uri);
+            var playlist = findPlaylistByName('importedStarred');
+            if (!playlist) {
+                globalStep = "Failed to find importedStarred playlist";
+                return;
+            }
+            uriInTracks(trackUri, playlist.tracks, function (uri) {
+                addToPlaylist(playlist.id, uri);
             });
         }
 
@@ -766,7 +811,8 @@
             item.tracks = [];
             loadTrackChunks(item.href, item.tracks, function () {
                 delete item.href;
-                result[item.name] = item;
+                item.originId = null;
+                result[item.id] = item;
                 if (arr.length == 0) {
                     callback();
                 } else {
