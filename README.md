@@ -25,7 +25,7 @@ There was a small issue with the authentication process, which i fixed using an 
    - In the User Management, add your second (new/old) account as well
      - Second user might need to login into dashboard one time as well to confirm terms and conditions
 5. Copy `.env.example` to `.env` and set the values (at minimum `CLIENT_ID` and `PUBLIC_URI` to match your deployment); the frontend reads these via the server so no additional config.js is needed
-6. Run `npm run serve-express` (equal to running `node index.js`, see package.json)
+6. Run `npm run dev` to start the Express server
 7. Click Login on old account
 8. Export File
 9. Open in incognito window

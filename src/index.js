@@ -1,7 +1,7 @@
 require("dotenv").config();
-const { loadConfig } = require("./lib/config");
-const AuthStateStore = require("./lib/auth-state-store");
-const { createServer } = require("./lib/server");
+const { loadConfig } = require("./config");
+const AuthStateStore = require("./auth/auth-state-store");
+const { createServer } = require("./server/create-server");
 
 let config;
 try {

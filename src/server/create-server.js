@@ -1,6 +1,7 @@
 const crypto = require("crypto");
 const express = require("express");
 const helmet = require("helmet");
+const path = require("path");
 const { stringify } = require("querystring");
 
 // Scopes required by the Spotify OAuth flow.
@@ -30,7 +31,8 @@ function createServer({
 
 	const app = express();
 	app.use(helmet());
-	app.use(express.static("public"));
+	const publicDir = path.join(__dirname, "..", "..", "public");
+	app.use(express.static(publicDir));
 
 	app.get("/login", async function (req, res) {
 		if (!config.client_id) {

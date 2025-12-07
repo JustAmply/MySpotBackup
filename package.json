@@ -11,7 +11,7 @@
     "prettier": "^3.7.4"
   },
   "scripts": {
-    "dev": "node index.js",
+    "dev": "node src/index.js",
     "lint": "eslint . --max-warnings=0",
     "lint:fix": "eslint --fix .",
     "format": "prettier --check .",
