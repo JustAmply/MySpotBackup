@@ -105,7 +105,6 @@ function createServer({ config, authStateStore, fetchFn = fetch, cryptoLib = nod
 		res.set("Cache-Control", "no-store, max-age=0");
 		const safeConfigOrigin = JSON.stringify(config.uri);
 		const safeToken = JSON.stringify(token);
-		const storageKey = "myspotbackup_token";
 		const fallbackHtml =
 			"<p>Login complete. You can close this window.</p><p>If it does not close automatically, return to the original tab.</p>";
 		res.send(
@@ -131,18 +130,6 @@ function createServer({ config, authStateStore, fetchFn = fetch, cryptoLib = nod
     } catch (err) {
       console.warn("postMessage to opener failed", err);
     }
-  }
-
-  try {
-    localStorage.setItem(${JSON.stringify(storageKey)}, token);
-  } catch (err) {
-    console.warn("unable to persist token in localStorage", err);
-  }
-
-  try {
-    sessionStorage.setItem(${JSON.stringify(storageKey)}, token);
-  } catch (err) {
-    console.warn("unable to persist token in sessionStorage", err);
   }
 
   try {
