@@ -26,12 +26,12 @@ const scopes = [
 ];
 const authStateStore = new Map();
 const AUTH_STATE_TTL_MS = 5 * 60 * 1000;
+const AUTH_STATE_SWEEP_MS = 60 * 1000;
 
 const app = express();
 
 function validateUri(value) {
     try {
-        // eslint-disable-next-line no-new
         new URL(value);
         return true;
     } catch {
@@ -71,6 +71,15 @@ async function generateCodeChallenge(codeVerifier) {
 
 app.use(express.static('public'));
 
+setInterval(() => {
+    const now = Date.now();
+    for (const [state, value] of authStateStore.entries()) {
+        if (!value || now - value.createdAt > AUTH_STATE_TTL_MS) {
+            authStateStore.delete(state);
+        }
+    }
+}, AUTH_STATE_SWEEP_MS).unref();
+
 app.get('/login', async function (req, res) {
     if (!config.client_id) {
         res.status(500).send('Missing CLIENT_ID configuration');
@@ -109,20 +118,24 @@ app.get('/callback', async function (req, res) {
         return;
     }
 
-    if (state === null || !stored || isExpired) {
-        if (state && stored) {
-            authStateStore.delete(state);
-        }
-        res.redirect('/#' + stringify({error: 'state_mismatch'}));
-    } else {
-        authStateStore.delete(state);
-        const {token, error} = await getAccessToken(code, stored.codeVerifier);
-        if (error) {
-            res.status(400).send(`Error during getAccessToken: ${error}. Restart your session and try again. <a href="/">Home Page</a>`);
-            return;
-        }
-        res.send(`Congrats! Your Code is <br/>  ${code} <br/> and the token is <br/> ${token}<br/> , submitting to parent page now.` + `<script type='text/javascript'>window.onload = () => { console.log("posting", "${{token}}", "${config.uri}"); window.opener.postMessage({token:"${token}"}, "${config.uri}");}</script>`);
+    if (state === null || !stored) {
+        res.status(400).send('OAuth state is missing or invalid. Please restart the login flow.');
+        return;
     }
+
+    if (isExpired) {
+        authStateStore.delete(state);
+        res.status(400).send('OAuth state is expired. Please restart the login flow.');
+        return;
+    }
+
+    authStateStore.delete(state);
+    const {token, error} = await getAccessToken(code, stored.codeVerifier);
+    if (error) {
+        res.status(400).send(`Error during getAccessToken: ${error}. Restart your session and try again. <a href="/">Home Page</a>`);
+        return;
+    }
+    res.send(`Congrats! Your Code is <br/>  ${code} <br/> and the token is <br/> ${token}<br/> , submitting to parent page now.` + `<script type='text/javascript'>window.onload = () => { console.log("posting", "${{token}}", "${config.uri}"); window.opener.postMessage({token:"${token}"}, "${config.uri}");}</script>`);
 });
 
 async function getAccessToken(code, codeVerifier) {
