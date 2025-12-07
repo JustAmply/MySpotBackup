@@ -7,12 +7,16 @@
     "helmet": "^8.1.0"
   },
   "devDependencies": {
-    "eslint": "^9.39.1"
+    "eslint": "^9.39.1",
+    "prettier": "^3.7.4"
   },
   "scripts": {
     "dev": "node index.js",
-    "lint": "eslint .",
-    "test": "npm run lint",
+    "lint": "eslint . --max-warnings=0",
+    "lint:fix": "eslint --fix .",
+    "format": "prettier --check .",
+    "format:fix": "prettier --write .",
+    "test": "npm run lint && npm run format",
     "deps:update": "npm update --save",
     "deps:upgrade": "npx npm-check-updates --upgrade && npm install"
   }
