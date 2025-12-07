@@ -112,7 +112,15 @@ function createServer({ config, authStateStore, fetchFn = fetch, cryptoLib = nod
 				`window.onload = () => {
   const opener = window.opener;
   const token = ${safeToken};
-  const targetOrigin = ${safeConfigOrigin};
+  let targetOrigin = ${safeConfigOrigin};
+
+  try {
+    if (opener && opener.location && opener.location.origin) {
+      targetOrigin = opener.location.origin;
+    }
+  } catch (err) {
+    console.warn("unable to read opener origin", err);
+  }
 
   if (opener && !opener.closed) {
     try {
@@ -122,6 +130,12 @@ function createServer({ config, authStateStore, fetchFn = fetch, cryptoLib = nod
     } catch (err) {
       console.warn("postMessage to opener failed", err);
     }
+  }
+
+  try {
+    localStorage.setItem(${JSON.stringify(storageKey)}, token);
+  } catch (err) {
+    console.warn("unable to persist token in localStorage", err);
   }
 
   try {

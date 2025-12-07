@@ -663,17 +663,30 @@ function handlePlaylistTracks(arr, result, callback) {
 	});
 }
 
-function consumeStoredToken() {
+function takeFromStorage(storage) {
+	if (!storage) return null;
 	try {
-		var stored = sessionStorage.getItem(STORED_TOKEN_KEY);
-		if (stored) {
-			sessionStorage.removeItem(STORED_TOKEN_KEY);
-			return stored;
+		var value = storage.getItem(STORED_TOKEN_KEY);
+		if (value) {
+			storage.removeItem(STORED_TOKEN_KEY);
+			return value;
 		}
 	} catch (error) {
 		console.log("Unable to read stored token", error);
 	}
 	return null;
+}
+
+function consumeStoredToken() {
+	return takeFromStorage(sessionStorage) || takeFromStorage(localStorage);
+}
+
+function handleStorageToken(event) {
+	if (event.key !== STORED_TOKEN_KEY || !event.newValue) return;
+	var storedToken = consumeStoredToken();
+	if (storedToken) {
+		handleAuth(storedToken);
+	}
 }
 
 window.onload = async function () {
@@ -689,6 +702,7 @@ window.onload = async function () {
 		}
 		$("#login").click(login);
 		window.addEventListener("message", authCallback, false);
+		window.addEventListener("storage", handleStorageToken, false);
 		bindControls();
 		refreshProgress();
 
