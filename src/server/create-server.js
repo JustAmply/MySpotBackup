@@ -25,7 +25,12 @@ function createServer({ config, authStateStore, fetchFn = fetch, cryptoLib = nod
 	if (!authStateStore) throw new Error("createServer requires an authStateStore instance");
 
 	const app = express();
-	app.use(helmet());
+	app.use(
+		helmet({
+			// Keep window.opener available for the OAuth popup; COOP would null it after the Spotify redirect.
+			crossOriginOpenerPolicy: false,
+		})
+	);
 	const publicDir = path.join(__dirname, "..", "..", "public");
 	app.use(express.static(publicDir));
 
