@@ -8,6 +8,7 @@ var userId = "";
 var collections = {};
 var accountName = "spotify";
 var importColl = null;
+var STORED_TOKEN_KEY = "myspotbackup_token";
 
 var isImporting = false;
 var isExporting = false;
@@ -94,6 +95,10 @@ function login() {
 		console.log("Configuration missing; cannot start login.");
 		return;
 	}
+	if (!conf.login_url) {
+		console.log("Login URL missing; cannot start login.");
+		return;
+	}
 	var width = 480,
 		height = 640;
 	var left = screen.width / 2 - width / 2;
@@ -111,6 +116,11 @@ function login() {
 			", left=" +
 			left
 	);
+
+	// Some browsers block popups; fall back to navigating in the same tab.
+	if (!authWindow || authWindow.closed || typeof authWindow.closed === "undefined") {
+		window.location.href = conf.login_url;
+	}
 }
 
 function authCallback(event) {
@@ -118,9 +128,13 @@ function authCallback(event) {
 		console.log("Configuration missing; cannot validate auth callback origin.");
 		return;
 	}
-	if (event.origin !== conf.uri) {
-		console.log("config.uri missconfigured:");
-		console.log({ uri: conf.uri, origin: event.origin });
+	var currentOrigin = window.location.origin;
+	if (event.origin !== conf.uri && event.origin !== currentOrigin) {
+		console.log("Unexpected auth callback origin:", {
+			expected: conf.uri,
+			current: currentOrigin,
+			got: event.origin,
+		});
 		return;
 	}
 	if (authWindow && event.source !== authWindow) {
@@ -649,6 +663,19 @@ function handlePlaylistTracks(arr, result, callback) {
 	});
 }
 
+function consumeStoredToken() {
+	try {
+		var stored = sessionStorage.getItem(STORED_TOKEN_KEY);
+		if (stored) {
+			sessionStorage.removeItem(STORED_TOKEN_KEY);
+			return stored;
+		}
+	} catch (error) {
+		console.log("Unable to read stored token", error);
+	}
+	return null;
+}
+
 window.onload = async function () {
 	if (navigator.userAgent.indexOf("MSIE") !== -1 || navigator.appVersion.indexOf("Trident/") > 0) {
 		// MSIE
@@ -664,5 +691,10 @@ window.onload = async function () {
 		window.addEventListener("message", authCallback, false);
 		bindControls();
 		refreshProgress();
+
+		var storedToken = consumeStoredToken();
+		if (storedToken) {
+			handleAuth(storedToken);
+		}
 	}
 };

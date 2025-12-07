@@ -103,14 +103,27 @@ function createServer({ config, authStateStore, fetchFn = fetch, cryptoLib = nod
 			return;
 		}
 		res.set("Cache-Control", "no-store, max-age=0");
+		const safeConfigOrigin = JSON.stringify(config.uri);
+		const safeToken = JSON.stringify(token);
+		const storageKey = "myspotbackup_token";
 		res.send(
 			"<!doctype html><html><body><script>" +
-				"window.onload = () => {" +
-				"  if (window.opener && !window.opener.closed) {" +
-				`    window.opener.postMessage({token:"${token}"}, "${config.uri}");` +
-				"  }" +
-				"  window.close();" +
-				"};" +
+				`window.onload = () => {
+  const opener = window.opener;
+  const token = ${safeToken};
+  const targetOrigin = (opener && opener.location && opener.location.origin) || ${safeConfigOrigin};
+  if (opener && !opener.closed) {
+    opener.postMessage({token}, targetOrigin);
+    window.close();
+    return;
+  }
+  try {
+    sessionStorage.setItem(${JSON.stringify(storageKey)}, token);
+  } catch (err) {
+    console.warn("unable to persist token in sessionStorage", err);
+  }
+  window.location.replace("/");
+};` +
 				"</script></body></html>"
 		);
 	});
