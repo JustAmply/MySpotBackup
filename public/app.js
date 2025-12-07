@@ -1,5 +1,4 @@
 'use strict';
-/* global $, _ */
 
 var conf = null;
 
@@ -7,7 +6,7 @@ var authWindow = null;
 var token = null;
 var userId = '';
 var collections = {};
-var name = 'spotify';
+var accountName = 'spotify';
 var importColl = null;
 
 var isImporting = false;
@@ -221,7 +220,7 @@ function compareEverything() {
             // instead we just create a replacement-standard-list
             globalStep = "Comparing starred tracks";
 
-            makeSureImportedStarredExists(function (proceed) {
+            makeSureImportedStarredExists(function () {
                 if (importColl.starred && importColl.starred.length > 0) {
                     compareUriTracks(importColl.starred, collections.starred || [], addToStarred);
                 }
@@ -408,7 +407,7 @@ function handlePlaylistRequests(arr, callback) {
             headers: {
                 'Authorization': 'Bearer ' + token
             },
-            success: function (response) {
+            success: function () {
                 // collections.playlists[response.name] = {
                 //     id: response.id,
                 //     uri: response.uri
@@ -430,7 +429,7 @@ function handlePlaylistRequests(arr, callback) {
 function uriInTracks(uri, tracks, addCallback) {
     var found = false;
     $.each(tracks, function (index, value) {
-        if (value.uri == uri) {
+        if (value.uri === uri) {
             found = true;
         }
     });
@@ -447,7 +446,7 @@ function compareUriTracks(imported, stored, addCallback) {
     $.each(imported, function (index, value) {
         var found = false;
         $.each(stored, function (index2, value2) {
-            if (value.uri == value2.uri) {
+            if (value.uri === value2.uri) {
                 found = true;
             }
         });
@@ -461,7 +460,7 @@ function compareIdTracks(imported, stored, addCallback) {
     $.each(imported, function (index, value) {
         var found = false;
         $.each(stored, function (index2, value2) {
-            if (value.id == value2.id) {
+            if (value.id === value2.id) {
                 found = true;
             }
         });
@@ -480,7 +479,7 @@ function bindControls() {
         var json = JSON.stringify(collections);
         var d = new Date();
         var time = '@' + d.getFullYear() + '_' + (d.getMonth() + 1) + '_' + d.getDate();
-        download(name + time + '.json', json);
+        download(accountName + time + '.json', json);
     });
     $('#fileImport').change(readFile);
 }
@@ -497,9 +496,9 @@ function handleAuth(accessToken) {
         success: function (response) {
             var user_id = response.id.toLowerCase();
             userId = user_id;
-            name = user_id;
+            accountName = user_id;
 
-            $('#userName').html(name);
+            $('#userName').html(accountName);
             $('#pnlLoggedOut').hide();
 
             refreshTrackData(function () {
@@ -622,7 +621,7 @@ function handlePlaylistTracks(arr, result, callback) {
         delete item.href;
         item.originId = null;
         result[item.id] = item;
-        if (arr.length == 0) {
+        if (arr.length === 0) {
             callback();
         } else {
             handlePlaylistTracks(arr, result, callback);
@@ -638,7 +637,7 @@ window.onload = async function () {
         $('#login').prop('disabled', true);
         try {
             await loadConfig();
-        } catch (error) {
+        } catch {
             return;
         }
         $('#login').click(login);

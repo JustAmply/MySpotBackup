@@ -1,5 +1,5 @@
 require('dotenv').config();
-const crypto = require('crypto');
+const cryptoLib = require('crypto');
 const express = require('express');
 const {stringify} = require('querystring');
 
@@ -30,11 +30,11 @@ const AUTH_STATE_TTL_MS = 5 * 60 * 1000;
 const app = express();
 
 function generateRandomString(length) {
-    return crypto.randomBytes(length).toString('base64url').slice(0, length);
+    return cryptoLib.randomBytes(length).toString('base64url').slice(0, length);
 }
 
 async function generateCodeChallenge(codeVerifier) {
-    const digest = crypto.createHash('sha256').update(codeVerifier).digest('base64');
+    const digest = cryptoLib.createHash('sha256').update(codeVerifier).digest('base64');
     return digest.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
@@ -111,7 +111,7 @@ async function getAccessToken(code, codeVerifier) {
     let responseBody;
     try {
         responseBody = await response.json();
-    } catch (error) {
+    } catch {
         return {token: null, error: `token endpoint returned ${response.status}`};
     }
 
