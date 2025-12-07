@@ -106,25 +106,37 @@ function createServer({ config, authStateStore, fetchFn = fetch, cryptoLib = nod
 		const safeConfigOrigin = JSON.stringify(config.uri);
 		const safeToken = JSON.stringify(token);
 		const storageKey = "myspotbackup_token";
+		const fallbackHtml = `<p>Login complete. You can close this window.</p><p>If it does not close automatically, return to the original tab.</p>`;
 		res.send(
 			"<!doctype html><html><body><script>" +
 				`window.onload = () => {
   const opener = window.opener;
   const token = ${safeToken};
-  const targetOrigin = (opener && opener.location && opener.location.origin) || ${safeConfigOrigin};
+  const targetOrigin = ${safeConfigOrigin};
+
   if (opener && !opener.closed) {
-    opener.postMessage({token}, targetOrigin);
-    window.close();
-    return;
+    try {
+      opener.postMessage({token}, targetOrigin);
+      window.close();
+      return;
+    } catch (err) {
+      console.warn("postMessage to opener failed", err);
+    }
   }
+
   try {
     sessionStorage.setItem(${JSON.stringify(storageKey)}, token);
   } catch (err) {
     console.warn("unable to persist token in sessionStorage", err);
   }
-  window.location.replace("/");
+
+  try {
+    window.location.replace("/");
+  } catch (err) {
+    console.warn("unable to redirect to home", err);
+  }
 };` +
-				"</script></body></html>"
+				`</script>${fallbackHtml}</body></html>`
 		);
 	});
 
