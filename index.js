@@ -1,10 +1,7 @@
-const fs = require('fs');
-const path = require('path');
+require('dotenv').config();
 const crypto = require('crypto');
 const express = require('express');
 const {stringify} = require('querystring');
-
-loadEnvFile();
 
 const port = Number(process.env.PORT || 8080);
 const baseUri = process.env.PUBLIC_URI || `http://localhost:${port}`;
@@ -93,33 +90,6 @@ async function getAccessToken(code) {
     const {access_token, error} = responseBody;
     return {token: access_token, error};
 }
-
-function loadEnvFile() {
-    const envPath = path.join(__dirname, '.env');
-    if (!fs.existsSync(envPath)) {
-        return;
-    }
-
-    const lines = fs.readFileSync(envPath, 'utf-8').split(/\r?\n/);
-    for (const line of lines) {
-        const trimmed = line.trim();
-        if (!trimmed || trimmed.startsWith('#')) {
-            continue;
-        }
-
-        const separatorIndex = trimmed.indexOf('=');
-        if (separatorIndex === -1) {
-            continue;
-        }
-
-        const key = trimmed.slice(0, separatorIndex).trim();
-        const value = trimmed.slice(separatorIndex + 1).trim();
-        if (key && !(key in process.env)) {
-            process.env[key] = value;
-        }
-    }
-}
-
 
 app.listen(config.port, () => {
     console.log(`MySpotBackup is running`, config);
