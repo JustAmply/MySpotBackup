@@ -287,6 +287,14 @@ function handleTrackUpload() {
 	}
 }
 
+function isValidSpotifyId(id) {
+	return typeof id === "string" && /^[A-Za-z0-9]{22}$/.test(id);
+}
+
+function isValidTrackUri(uri) {
+	return typeof uri === "string" && /^spotify:track:[A-Za-z0-9]{22}$/.test(uri);
+}
+
 function chunkItems(items, chunkSize) {
 	var batches = [];
 	for (var i = 0; i < items.length; i += chunkSize) {
@@ -331,6 +339,10 @@ function handlePlaylistCompare(ids, callback) {
 }
 
 function addToPlaylist(playlistId, trackUri) {
+	if (!isValidTrackUri(trackUri)) {
+		console.log("Skipping invalid track URI", trackUri);
+		return;
+	}
 	playlistQueue.push({ playlistId: playlistId, uri: trackUri });
 }
 
@@ -498,11 +510,19 @@ function uriInTracks(uri, tracks, addCallback) {
 }
 
 function addToSaved(id) {
+	if (!isValidSpotifyId(id)) {
+		console.log("Skipping invalid saved track id", id);
+		return;
+	}
 	savedQueue.push(id);
 }
 
 function compareUriTracks(imported, stored, addCallback) {
 	$.each(imported, function (index, value) {
+		if (!isValidTrackUri(value.uri)) {
+			console.log("Skipping invalid track uri in compare", value);
+			return;
+		}
 		var found = false;
 		$.each(stored, function (index2, value2) {
 			if (value.uri === value2.uri) {
@@ -517,6 +537,10 @@ function compareUriTracks(imported, stored, addCallback) {
 
 function compareIdTracks(imported, stored, addCallback) {
 	$.each(imported, function (index, value) {
+		if (!isValidSpotifyId(value.id)) {
+			console.log("Skipping invalid track id in compare", value);
+			return;
+		}
 		var found = false;
 		$.each(stored, function (index2, value2) {
 			if (value.id === value2.id) {
