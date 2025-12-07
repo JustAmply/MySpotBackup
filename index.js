@@ -29,6 +29,37 @@ const AUTH_STATE_TTL_MS = 5 * 60 * 1000;
 
 const app = express();
 
+function validateUri(value) {
+    try {
+        // eslint-disable-next-line no-new
+        new URL(value);
+        return true;
+    } catch {
+        return false;
+    }
+}
+
+function validateConfig(cfg) {
+    const missingClientId = !cfg.client_id || typeof cfg.client_id !== 'string' || cfg.client_id.trim() === '';
+    const invalidUri = !cfg.uri || !validateUri(cfg.uri);
+    const invalidPort = Number.isNaN(cfg.port) || cfg.port <= 0 || cfg.port % 1 !== 0;
+    const invalidSlowdownImport = Number.isNaN(cfg.slowdown_import) || cfg.slowdown_import < 0;
+    const invalidSlowdownExport = Number.isNaN(cfg.slowdown_export) || cfg.slowdown_export < 0;
+
+    if (missingClientId || invalidUri || invalidPort || invalidSlowdownImport || invalidSlowdownExport) {
+        const issues = [];
+        if (missingClientId) issues.push('CLIENT_ID must be set');
+        if (invalidUri) issues.push('PUBLIC_URI must be a valid URL');
+        if (invalidPort) issues.push('PORT must be a positive integer');
+        if (invalidSlowdownImport) issues.push('SLOWDOWN_IMPORT must be a non-negative number');
+        if (invalidSlowdownExport) issues.push('SLOWDOWN_EXPORT must be a non-negative number');
+        console.error('Invalid configuration:', issues.join('; '));
+        process.exit(1);
+    }
+}
+
+validateConfig(config);
+
 function generateRandomString(length) {
     return cryptoLib.randomBytes(length).toString('base64url').slice(0, length);
 }
