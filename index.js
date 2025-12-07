@@ -14,38 +14,49 @@ const config = {
     slowdown_import: Number(process.env.SLOWDOWN_IMPORT || 100),
     slowdown_export: Number(process.env.SLOWDOWN_EXPORT || 100),
 };
+const scopes = [
+    'user-read-private',
+    'user-read-email',
+    'playlist-read-private',
+    'playlist-read-collaborative',
+    'playlist-modify-public',
+    'playlist-modify-private',
+    'user-library-read',
+    'user-library-modify',
+];
+const authStateStore = new Map();
+const AUTH_STATE_TTL_MS = 5 * 60 * 1000;
 
 const app = express();
-const codeVerifier = generateRandomString(128);
 
 function generateRandomString(length) {
-    let text = '';
-    let possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-
-    for (let i = 0; i < length; i++) {
-        text += possible.charAt(Math.floor(Math.random() * possible.length));
-    }
-    return text;
+    return crypto.randomBytes(length).toString('base64url').slice(0, length);
 }
 
 async function generateCodeChallenge(codeVerifier) {
-    const data = new TextEncoder().encode(codeVerifier);
-    const digest = await crypto.subtle.digest('SHA-256', data);
-    return btoa(String.fromCharCode.apply(null, [...new Uint8Array(digest)]))
-        .replace(/\+/g, '-')
-        .replace(/\//g, '_')
-        .replace(/=+$/, '');
+    const digest = crypto.createHash('sha256').update(codeVerifier).digest('base64');
+    return digest.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
 app.use(express.static('public'));
 
 app.get('/login', async function (req, res) {
+    if (!config.client_id) {
+        res.status(500).send('Missing CLIENT_ID configuration');
+        return;
+    }
+
+    const codeVerifier = generateRandomString(128);
+    const state = generateRandomString(16);
+
+    authStateStore.set(state, {codeVerifier, createdAt: Date.now()});
+
     res.redirect('https://accounts.spotify.com/authorize?' + stringify({
         response_type: 'code',
         client_id: config.client_id,
-        scope: 'user-read-private user-read-email playlist-read playlist-read-private playlist-modify-public playlist-modify-private user-library-read user-library-modify',
+        scope: scopes.join(' '),
         redirect_uri: config.callback_uri,
-        state: generateRandomString(16),
+        state,
         code_challenge_method: "S256",
         code_challenge: await generateCodeChallenge(codeVerifier),
     }));
@@ -57,21 +68,33 @@ app.get('/config', function (req, res) {
 
 app.get('/callback', async function (req, res) {
 
-    var code = req.query.code || null;
-    var state = req.query.state || null;
+    const code = req.query.code || null;
+    const state = req.query.state || null;
+    const stored = state ? authStateStore.get(state) : null;
+    const isExpired = stored && (Date.now() - stored.createdAt > AUTH_STATE_TTL_MS);
 
-    if (state === null) {
+    if (!code) {
+        res.redirect('/#' + stringify({error: 'missing_code'}));
+        return;
+    }
+
+    if (state === null || !stored || isExpired) {
+        if (state && stored) {
+            authStateStore.delete(state);
+        }
         res.redirect('/#' + stringify({error: 'state_mismatch'}));
     } else {
-        const {token, error} = await getAccessToken(code);
+        authStateStore.delete(state);
+        const {token, error} = await getAccessToken(code, stored.codeVerifier);
         if (error) {
-            res.send(`Error during getAccessToken: ${error}, probably a invalid session. Restart your server and go to the <a href="/">Home Page</a>`)
+            res.status(400).send(`Error during getAccessToken: ${error}. Restart your session and try again. <a href="/">Home Page</a>`);
+            return;
         }
         res.send(`Congrats! Your Code is <br/>  ${code} <br/> and the token is <br/> ${token}<br/> , submitting to parent page now.` + `<script type='text/javascript'>window.onload = () => { console.log("posting", "${{token}}", "${config.uri}"); window.opener.postMessage({token:"${token}"}, "${config.uri}");}</script>`);
     }
 });
 
-async function getAccessToken(code) {
+async function getAccessToken(code, codeVerifier) {
     const payload = {
         method: 'POST', headers: {
             'Content-Type': 'application/x-www-form-urlencoded',
@@ -85,7 +108,17 @@ async function getAccessToken(code) {
     }
 
     const response = await fetch("https://accounts.spotify.com/api/token", payload);
-    const responseBody = await response.json();
+    let responseBody;
+    try {
+        responseBody = await response.json();
+    } catch (error) {
+        return {token: null, error: `token endpoint returned ${response.status}`};
+    }
+
+    if (!response.ok) {
+        const message = responseBody.error_description || responseBody.error || response.statusText;
+        return {token: null, error: message};
+    }
 
     const {access_token, error} = responseBody;
     return {token: access_token, error};
