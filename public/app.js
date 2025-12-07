@@ -536,7 +536,12 @@ function handleAuth(accessToken) {
 			});
 		},
 		error: function (jqXHR, textStatus, errorThrown) {
-			console.log("Failed to fetch user profile", errorThrown || textStatus);
+			console.log("Failed to fetch user profile", {
+				status: jqXHR && jqXHR.status,
+				statusText: jqXHR && jqXHR.statusText,
+				responseText: jqXHR && jqXHR.responseText,
+				error: errorThrown || textStatus,
+			});
 			$("#pnlLoggedOut").html("Login failed, please try again.");
 			$("#login").prop("disabled", false);
 		},
@@ -681,6 +686,24 @@ function consumeStoredToken() {
 	return takeFromStorage(sessionStorage) || takeFromStorage(localStorage);
 }
 
+function consumeCookieToken() {
+	try {
+		var cookies = document.cookie ? document.cookie.split(";") : [];
+		for (var i = 0; i < cookies.length; i++) {
+			var c = cookies[i].trim();
+			if (c.indexOf(STORED_TOKEN_KEY + "=") === 0) {
+				var value = decodeURIComponent(c.substring(STORED_TOKEN_KEY.length + 1));
+				// delete cookie by expiring it
+				document.cookie = STORED_TOKEN_KEY + "=; Max-Age=0; Path=/; SameSite=Lax";
+				return value;
+			}
+		}
+	} catch (error) {
+		console.log("Unable to read cookie token", error);
+	}
+	return null;
+}
+
 function consumeHashToken() {
 	var hash = window.location.hash || "";
 	if (!hash || hash.length < 2) return null;
@@ -734,6 +757,12 @@ window.onload = async function () {
 		var hashToken = consumeHashToken();
 		if (hashToken) {
 			handleAuth(hashToken);
+			return;
+		}
+
+		var cookieToken = consumeCookieToken();
+		if (cookieToken) {
+			handleAuth(cookieToken);
 			return;
 		}
 

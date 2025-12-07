@@ -109,6 +109,10 @@ function createServer({ config, authStateStore, fetchFn = fetch, cryptoLib = nod
 		const fallbackHtml = `<p>Login complete. You can close this window.</p><p>If it does not close automatically, return to the original tab.</p><p>If nothing happens, <a href="/#token=${encodeURIComponent(
 			token
 		)}">click here to continue</a>.</p>`;
+		const cookie = buildTokenCookie(token, config);
+		if (cookie) {
+			res.append("Set-Cookie", cookie);
+		}
 		res.send(
 			"<!doctype html><html><body><script>" +
 				`window.onload = () => {
@@ -208,9 +212,23 @@ async function getAccessToken({ code, codeVerifier, config, fetchFn }) {
 	return { token: access_token, error };
 }
 
+function buildTokenCookie(token, config) {
+	if (!token) return null;
+	const parts = [];
+	parts.push(`myspotbackup_token=${encodeURIComponent(token)}`);
+	parts.push("Path=/");
+	parts.push("SameSite=Lax");
+	if (config && typeof config.uri === "string" && config.uri.startsWith("https://")) {
+		parts.push("Secure");
+	}
+	parts.push("Max-Age=3600");
+	return parts.join("; ");
+}
+
 module.exports = {
 	createServer,
 	generateRandomString,
 	generateCodeChallenge,
 	getAccessToken,
+	buildTokenCookie,
 };
