@@ -667,6 +667,27 @@ function handlePlaylistTracks(arr, result, callback) {
 	});
 }
 
+function consumeHashToken() {
+	var hash = window.location.hash || "";
+	if (!hash || hash.length < 2) return null;
+	var params = new URLSearchParams(hash.slice(1));
+	var hashToken = params.get("token");
+	if (!hashToken) return null;
+	try {
+		params.delete("token");
+		var newHash = params.toString();
+		if (typeof window.history.replaceState === "function") {
+			var cleanedHash = newHash ? "#" + newHash : "";
+			window.history.replaceState(null, document.title, window.location.pathname + cleanedHash);
+		} else {
+			window.location.hash = newHash;
+		}
+	} catch (error) {
+		console.log("Unable to clean hash token", error);
+	}
+	return hashToken;
+}
+
 window.onload = async function () {
 	if (navigator.userAgent.indexOf("MSIE") !== -1 || navigator.appVersion.indexOf("Trident/") > 0) {
 		// MSIE
@@ -682,5 +703,10 @@ window.onload = async function () {
 		window.addEventListener("message", authCallback, false);
 		bindControls();
 		refreshProgress();
+
+		var hashToken = consumeHashToken();
+		if (hashToken) {
+			handleAuth(hashToken);
+		}
 	}
 };

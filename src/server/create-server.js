@@ -113,8 +113,9 @@ function createServer({ config, authStateStore, fetchFn = fetch, cryptoLib = nod
 		res.set("Cache-Control", "no-store, max-age=0");
 		const safeConfigOrigin = JSON.stringify(config.uri);
 		const safeToken = JSON.stringify(token);
-		const fallbackHtml =
-			"<p>Login complete. You can close this window.</p><p>If it does not close automatically, return to the original tab.</p>";
+		const fallbackHtml = `<p>Login complete. You can close this window.</p><p>If it does not close automatically, return to the original tab.</p><p>If nothing happens, <a href="/#token=${encodeURIComponent(
+			token
+		)}">click here to continue</a>.</p>`;
 		res.send(
 			"<!doctype html><html><body><script>" +
 				`window.onload = () => {
@@ -144,6 +145,13 @@ function createServer({ config, authStateStore, fetchFn = fetch, cryptoLib = nod
     window.location.replace("/");
   } catch (err) {
     console.warn("unable to redirect to home", err);
+  }
+
+  try {
+    const hash = "#token=" + encodeURIComponent(token);
+    window.location.replace("/" + hash);
+  } catch (err) {
+    console.warn("unable to redirect to home with hash token", err);
   }
 };` +
 				`</script>${fallbackHtml}</body></html>`
