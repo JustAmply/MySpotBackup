@@ -1,11 +1,16 @@
 {
+  "name": "myspotbackup",
+  "version": "1.0.0",
   "dependencies": {
     "dotenv": "^17.2.3",
-    "express": "^5.2.1",
-    "http-server": "^14.1.1"
+    "express": "^5.2.1"
+  },
+  "devDependencies": {
+    "eslint": "^9.39.1"
   },
   "scripts": {
-    "serve-simple": "http-server ./public",
-    "serve-express": "node index.js"
+    "serve-express": "node index.js",
+    "lint": "eslint .",
+    "test": "npm run lint"
   }
 }

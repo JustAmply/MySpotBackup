@@ -39,6 +39,9 @@ docker run --rm -p 8080:8080 --env-file .env myspotbackup
 ```
 Make sure the URLs in your ``.env`` match how you expose the container (e.g. ``PUBLIC_URI=http://localhost:8080``).
 
+## Development
+- Lint the project: ``npm run lint`` (uses ESLint across both the frontend JS and server code).
+
 ## Known Issues (probably already in the original):
 - When running this on my personal account, some of the playlists were not copied fully, some were empty on the target, but it was a good start.
 - Dates like the time a song was added to a playlist get lost
