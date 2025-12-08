@@ -32,6 +32,7 @@
     "format:fix": "prettier --write .",
     "test": "jest",
     "test:coverage": "jest --coverage",
+    "check": "npm run lint && npm run format && npm test",
     "deps:update": "npm update --save",
     "deps:upgrade": "npx npm-check-updates --upgrade && npm install"
   }
