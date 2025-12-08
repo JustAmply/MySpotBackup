@@ -1,13 +1,17 @@
-require("dotenv").config();
-const { loadConfig } = require("./config");
-const AuthStateStore = require("./auth/auth-state-store");
-const { createServer } = require("./server/create-server");
+import "dotenv/config";
+import { loadConfig } from "./config";
+import { AuthStateStore } from "./auth/auth-state-store";
+import { createServer } from "./server/create-server";
 
 let config;
 try {
 	config = loadConfig(process.env);
-} catch (error) {
-	console.error("Invalid configuration:", error.message);
+} catch (error: unknown) {
+	if (error instanceof Error) {
+		console.error("Invalid configuration:", error.message);
+	} else {
+		console.error("Invalid configuration:", error);
+	}
 	process.exit(1);
 }
 const AUTH_STATE_TTL_MS = 5 * 60 * 1000;
