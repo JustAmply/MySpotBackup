@@ -3,7 +3,7 @@ const globals = require("globals");
 
 module.exports = [
 	{
-		ignores: ["**/node_modules/**", "**/public/vendor/**", "**/dist/**"],
+		ignores: ["**/node_modules/**", "**/public/vendor/**", "**/dist/**", "**/coverage/**"],
 	},
 	js.configs.recommended,
 	{
@@ -35,6 +35,14 @@ module.exports = [
 		rules: {
 			...require("@typescript-eslint/eslint-plugin").configs.recommended.rules,
 			"@typescript-eslint/no-var-requires": "off", // allow require in legacy parts if any
+		},
+	},
+	{
+		files: ["tests/**/*.ts", "**/*.test.ts"],
+		languageOptions: {
+			globals: {
+				...globals.jest,
+			},
 		},
 	},
 ];
