@@ -25,6 +25,9 @@ export class BackupManager {
 
 			for (let i = 0; i < playlists.length; i++) {
 				const p = playlists[i];
+				if (!p.name || p.name.trim() === "") {
+					p.name = `Untitled Playlist ${i + 1}`;
+				}
 				this.ui.updateProgress(
 					`Fetching Tracks for ${p.name}`,
 					i + 1,
