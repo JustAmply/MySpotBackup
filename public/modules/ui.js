@@ -56,16 +56,12 @@ export class UIManager {
 		}
 		if (pStep !== undefined) {
 			this.$playlistStep.text(pStep);
-			this.$loadingPlaylists.text(
-				pTotal ? `${pStep} / ${pTotal} playlists` : `${pStep} playlists`
-			);
+			this.$loadingPlaylists.text(pTotal ? `${pStep} / ${pTotal} playlists` : `${pStep} playlists`);
 		}
 		if (pTotal !== undefined) this.$playlistTotal.text(pTotal);
 		if (tStep !== undefined) {
 			this.$trackStep.text(tStep);
-			this.$loadingTracks.text(
-				tTotal ? `${tStep} / ${tTotal} tracks` : `${tStep} tracks`
-			);
+			this.$loadingTracks.text(tTotal ? `${tStep} / ${tTotal} tracks` : `${tStep} tracks`);
 		}
 		if (tTotal !== undefined) this.$trackTotal.text(tTotal);
 
