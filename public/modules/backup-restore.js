@@ -57,6 +57,7 @@ export class BackupManager {
 				trackCount + saved.length
 			);
 			this.ui.setLoading("Finished loading. Ready to Export or Import.");
+			this.ui.enableButtons();
 		} catch (e) {
 			this.ui.showError("Failed to load account data: " + e.message);
 		}
