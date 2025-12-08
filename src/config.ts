@@ -1,7 +1,17 @@
+export interface Config {
+	port: number;
+	uri: string;
+	login_url: string;
+	callback_uri: string;
+	client_id: string;
+	slowdown_import: number;
+	slowdown_export: number;
+}
+
 const DEFAULT_PORT = 8080;
 const DEFAULT_SLOWDOWN_MS = 100;
 
-function validateUri(value) {
+export function validateUri(value: string): boolean {
 	try {
 		new URL(value);
 		return true;
@@ -10,7 +20,7 @@ function validateUri(value) {
 	}
 }
 
-function buildConfig(env = process.env) {
+export function buildConfig(env: typeof process.env = process.env): Config {
 	const port = Number(env.PORT ?? DEFAULT_PORT);
 	const uri = env.PUBLIC_URI || `http://localhost:${port}`;
 
@@ -25,7 +35,7 @@ function buildConfig(env = process.env) {
 	};
 }
 
-function assertValidConfig(cfg) {
+export function assertValidConfig(cfg: Config): void {
 	const missingClientId =
 		!cfg.client_id || typeof cfg.client_id !== "string" || cfg.client_id.trim() === "";
 	const invalidUri = !cfg.uri || !validateUri(cfg.uri);
@@ -40,7 +50,7 @@ function assertValidConfig(cfg) {
 		invalidSlowdownImport ||
 		invalidSlowdownExport
 	) {
-		const issues = [];
+		const issues: string[] = [];
 		if (missingClientId) issues.push("CLIENT_ID must be set");
 		if (invalidUri) issues.push("PUBLIC_URI must be a valid URL");
 		if (invalidPort) issues.push("PORT must be a positive integer");
@@ -52,15 +62,8 @@ function assertValidConfig(cfg) {
 	}
 }
 
-function loadConfig(env = process.env) {
+export function loadConfig(env: typeof process.env = process.env): Config {
 	const cfg = buildConfig(env);
 	assertValidConfig(cfg);
 	return Object.freeze(cfg);
 }
-
-module.exports = {
-	loadConfig,
-	buildConfig,
-	assertValidConfig,
-	validateUri,
-};

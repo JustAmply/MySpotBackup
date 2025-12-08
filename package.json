@@ -7,11 +7,20 @@
     "helmet": "^8.1.0"
   },
   "devDependencies": {
+    "@types/express": "^5.0.6",
+    "@types/helmet": "^0.0.48",
+    "@types/node": "^24.10.1",
+    "@typescript-eslint/eslint-plugin": "^8.48.1",
+    "@typescript-eslint/parser": "^8.48.1",
     "eslint": "^9.39.1",
-    "prettier": "^3.7.4"
+    "prettier": "^3.7.4",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3"
   },
   "scripts": {
-    "dev": "node src/index.js",
+    "dev": "ts-node src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
     "lint": "eslint . --max-warnings=0",
     "lint:fix": "eslint --fix .",
     "format": "prettier --check .",

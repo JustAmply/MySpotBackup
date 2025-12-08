@@ -5,7 +5,8 @@
 		<title>MySpotBackup</title>
 
 		<script type="text/javascript" src="vendor/jquery-3.7.1.min.js"></script>
-		<script type="text/javascript" src="vendor/underscore-1.13.6.min.js"></script>
+		<!-- Underscore is removed as we use ES6 features -->
+
 		<link
 			href="https://fonts.googleapis.com/css?family=Lato:100,300,400,700,900,100italic,300italic,400italic,700italic,900italic&subset=latin,latin-ext"
 			rel="stylesheet"
@@ -28,7 +29,13 @@
 					>
 					<br />
 					<br />
-					<button id="login" class="button-main button-big">Login with Spotify</button>
+					<!-- Two buttons for scopes -->
+					<button id="btn-login-read" class="button-main button-medium">
+						Login to Export (Read-Only)
+					</button>
+					<button id="btn-login-write" class="button-main button-medium" style="margin-left: 10px">
+						Login to Import (Read/Write)
+					</button>
 				</div>
 			</div>
 			<div id="pnlLoadingAccount" style="font-size: 16px; display: none" class="heading">
@@ -61,7 +68,7 @@
 				</div>
 			</div>
 			<div id="pnlUpload" style="font-size: 16px; overflow: hidden; display: none" class="heading">
-				<div class="title-medium">Importing new playlists and tracks</div>
+				<div class="title-medium">Processing...</div>
 				<br />
 				<div>
 					<span>Processed playlists: </span><span id="playlistStep"></span>/<span
@@ -96,6 +103,6 @@
 			</div>
 		</div>
 
-		<script src="app.js"></script>
+		<script type="module" src="main.js"></script>
 	</body>
 </html>

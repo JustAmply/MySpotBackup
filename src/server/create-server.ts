@@ -1,26 +1,43 @@
-const nodeCrypto = require("crypto");
-const express = require("express");
-const helmet = require("helmet");
-const path = require("path");
-const { stringify } = require("querystring");
+import express, { Express, Request, Response } from "express";
+import helmet from "helmet";
+import path from "path";
+import crypto from "crypto";
+import { stringify } from "querystring";
+import { Config } from "../config";
+import { AuthStateStore } from "../auth/auth-state-store";
 
 // Scopes required by the Spotify OAuth flow.
-const scopes = [
+// We will split this based on the requested scope type (read/write).
+const READ_SCOPES = [
 	"user-read-private",
 	"user-read-email",
 	"playlist-read-private",
 	"playlist-read-collaborative",
-	"playlist-modify-public",
-	"playlist-modify-private",
 	"user-library-read",
-	"user-library-modify",
 ];
+
+const WRITE_SCOPES = ["playlist-modify-public", "playlist-modify-private", "user-library-modify"];
+
+// Combined scopes for backward compatibility or full access
+const ALL_SCOPES = [...READ_SCOPES, ...WRITE_SCOPES];
+
+interface CreateServerOptions {
+	config: Config;
+	authStateStore: AuthStateStore;
+	fetchFn?: typeof fetch;
+	cryptoLib?: Pick<typeof crypto, "randomBytes" | "createHash">;
+}
 
 /**
  * Builds an Express application configured for the Spotify auth flow.
  * Dependencies are injected to make the server easier to test and extend.
  */
-function createServer({ config, authStateStore, fetchFn = fetch, cryptoLib = nodeCrypto } = {}) {
+export function createServer({
+	config,
+	authStateStore,
+	fetchFn = fetch,
+	cryptoLib = crypto,
+}: CreateServerOptions): Express {
 	if (!config) throw new Error("createServer requires a config object");
 	if (!authStateStore) throw new Error("createServer requires an authStateStore instance");
 
@@ -43,10 +60,19 @@ function createServer({ config, authStateStore, fetchFn = fetch, cryptoLib = nod
 	const publicDir = path.join(__dirname, "..", "..", "public");
 	app.use(express.static(publicDir));
 
-	app.get("/login", async function (req, res) {
+	app.get("/login", async function (req: Request, res: Response) {
 		if (!config.client_id) {
 			res.status(500).send("Missing CLIENT_ID configuration");
 			return;
+		}
+
+		const scopeType = req.query.scopeType as string; // 'read', 'write', or undefined (all)
+		let scopesToRequest = ALL_SCOPES;
+
+		if (scopeType === "read") {
+			scopesToRequest = READ_SCOPES;
+		} else if (scopeType === "write") {
+			scopesToRequest = ALL_SCOPES; // Write implies read usually, but better to ask for everything needed for import
 		}
 
 		const codeVerifier = generateRandomString(128, cryptoLib);
@@ -54,27 +80,26 @@ function createServer({ config, authStateStore, fetchFn = fetch, cryptoLib = nod
 
 		authStateStore.storeState(state, codeVerifier);
 
-		res.redirect(
-			"https://accounts.spotify.com/authorize?" +
-				stringify({
-					response_type: "code",
-					client_id: config.client_id,
-					scope: scopes.join(" "),
-					redirect_uri: config.callback_uri,
-					state,
-					code_challenge_method: "S256",
-					code_challenge: await generateCodeChallenge(codeVerifier, cryptoLib),
-				})
-		);
+		const params = {
+			response_type: "code",
+			client_id: config.client_id,
+			scope: scopesToRequest.join(" "),
+			redirect_uri: config.callback_uri,
+			state,
+			code_challenge_method: "S256",
+			code_challenge: await generateCodeChallenge(codeVerifier, cryptoLib),
+		};
+
+		res.redirect("https://accounts.spotify.com/authorize?" + stringify(params));
 	});
 
-	app.get("/config", function (req, res) {
+	app.get("/config", function (req: Request, res: Response) {
 		res.json(config);
 	});
 
-	app.get("/callback", async function (req, res) {
-		const code = req.query.code || null;
-		const state = req.query.state || null;
+	app.get("/callback", async function (req: Request, res: Response) {
+		const code = (req.query.code as string) || null;
+		const state = (req.query.state as string) || null;
 
 		if (!code) {
 			res.redirect("/#" + stringify({ error: "missing_code" }));
@@ -97,6 +122,12 @@ function createServer({ config, authStateStore, fetchFn = fetch, cryptoLib = nod
 			return;
 		}
 
+		if (!entry) {
+			// Should not happen if status is valid, but for TS safety
+			res.status(500).send("Internal Error");
+			return;
+		}
+
 		const { token, error } = await getAccessToken({
 			code,
 			codeVerifier: entry.codeVerifier,
@@ -115,7 +146,7 @@ function createServer({ config, authStateStore, fetchFn = fetch, cryptoLib = nod
 		const safeConfigOrigin = JSON.stringify(config.uri);
 		const safeToken = JSON.stringify(token);
 		const fallbackHtml = `<p>Login complete. You can close this window.</p><p>If it does not close automatically, return to the original tab.</p><p>If nothing happens, <a href="/#token=${encodeURIComponent(
-			token
+			token!
 		)}">click here to continue</a>.</p>`;
 		res.send(
 			"<!doctype html><html><body><script>" +
@@ -167,16 +198,40 @@ function createServer({ config, authStateStore, fetchFn = fetch, cryptoLib = nod
 	return app;
 }
 
-function generateRandomString(length, cryptoLib) {
+export function generateRandomString(
+	length: number,
+	cryptoLib: Pick<typeof crypto, "randomBytes">
+): string {
 	return cryptoLib.randomBytes(length).toString("base64url").slice(0, length);
 }
 
-async function generateCodeChallenge(codeVerifier, cryptoLib) {
+export async function generateCodeChallenge(
+	codeVerifier: string,
+	cryptoLib: Pick<typeof crypto, "createHash">
+): Promise<string> {
 	const digest = cryptoLib.createHash("sha256").update(codeVerifier).digest("base64");
 	return digest.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
 
-async function getAccessToken({ code, codeVerifier, config, fetchFn }) {
+interface GetAccessTokenOptions {
+	code: string;
+	codeVerifier: string;
+	config: Config;
+	fetchFn: typeof fetch;
+}
+
+interface TokenResponse {
+	access_token?: string;
+	error?: string;
+	error_description?: string;
+}
+
+export async function getAccessToken({
+	code,
+	codeVerifier,
+	config,
+	fetchFn,
+}: GetAccessTokenOptions): Promise<{ token: string | null; error?: string }> {
 	const payload = {
 		method: "POST",
 		headers: {
@@ -192,7 +247,7 @@ async function getAccessToken({ code, codeVerifier, config, fetchFn }) {
 	};
 
 	const response = await fetchFn("https://accounts.spotify.com/api/token", payload);
-	let responseBody;
+	let responseBody: TokenResponse;
 	try {
 		responseBody = await response.json();
 	} catch {
@@ -205,12 +260,5 @@ async function getAccessToken({ code, codeVerifier, config, fetchFn }) {
 	}
 
 	const { access_token, error } = responseBody;
-	return { token: access_token, error };
+	return { token: access_token || null, error };
 }
-
-module.exports = {
-	createServer,
-	generateRandomString,
-	generateCodeChallenge,
-	getAccessToken,
-};
