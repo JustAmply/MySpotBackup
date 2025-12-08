@@ -143,7 +143,7 @@ export function createServer({
 			return;
 		}
 		res.set("Cache-Control", "no-store, max-age=0");
-		const safeConfigOrigin = JSON.stringify(config.uri);
+		const safeConfigOrigin = JSON.stringify(new URL(config.uri).origin);
 		const safeToken = JSON.stringify(token);
 		const fallbackHtml = `<p>Login complete. You can close this window.</p><p>If it does not close automatically, return to the original tab.</p><p>If nothing happens, <a href="/#token=${encodeURIComponent(
 			token!
