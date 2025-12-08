@@ -497,19 +497,27 @@ function handleSavedRequests(arr, callback) {
 		callback();
 		return;
 	}
-	processWithLimit(arr, 4, function (ids, done) {
-		trackStep += ids.length;
-		console.log("Uploading saved batch", ids.length);
-		sendWithRetry({
-			method: "PUT",
-			url: "https://api.spotify.com/v1/me/tracks",
-			data: JSON.stringify({ ids: ids }),
-			contentType: "application/json",
-			headers: {
-				Authorization: "Bearer " + token,
-			},
-		}, done);
-	}, callback);
+	processWithLimit(
+		arr,
+		4,
+		function (ids, done) {
+			trackStep += ids.length;
+			console.log("Uploading saved batch", ids.length);
+			sendWithRetry(
+				{
+					method: "PUT",
+					url: "https://api.spotify.com/v1/me/tracks",
+					data: JSON.stringify({ ids: ids }),
+					contentType: "application/json",
+					headers: {
+						Authorization: "Bearer " + token,
+					},
+				},
+				done
+			);
+		},
+		callback
+	);
 }
 
 function handlePlaylistRequests(arr, callback) {
@@ -517,24 +525,32 @@ function handlePlaylistRequests(arr, callback) {
 		callback();
 		return;
 	}
-	processWithLimit(arr, 3, function (batch, done) {
-		trackStep += batch.uris.length;
-		console.log("Uploading playlist batch", batch.playlistId, batch.uris.length);
-		sendWithRetry({
-			method: "POST",
-			url:
-				"https://api.spotify.com/v1/users/" +
-				userId +
-				"/playlists/" +
-				batch.playlistId +
-				"/tracks",
-			data: JSON.stringify({ uris: batch.uris }),
-			contentType: "application/json",
-			headers: {
-				Authorization: "Bearer " + token,
-			},
-		}, done);
-	}, callback);
+	processWithLimit(
+		arr,
+		3,
+		function (batch, done) {
+			trackStep += batch.uris.length;
+			console.log("Uploading playlist batch", batch.playlistId, batch.uris.length);
+			sendWithRetry(
+				{
+					method: "POST",
+					url:
+						"https://api.spotify.com/v1/users/" +
+						userId +
+						"/playlists/" +
+						batch.playlistId +
+						"/tracks",
+					data: JSON.stringify({ uris: batch.uris }),
+					contentType: "application/json",
+					headers: {
+						Authorization: "Bearer " + token,
+					},
+				},
+				done
+			);
+		},
+		callback
+	);
 }
 
 function uriInTracks(uri, tracks, addCallback) {
