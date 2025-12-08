@@ -122,7 +122,7 @@ export class BackupManager {
 
 		if (importColl.saved) {
 			importColl.saved.forEach((t) => {
-				if (!currentSavedIds.has(t.id)) {
+				if (t.id && !currentSavedIds.has(t.id)) {
 					savedToImport.push(t.id);
 				}
 			});
@@ -153,14 +153,14 @@ export class BackupManager {
 					targetId = existing.id;
 					const currentTrackUris = new Set(existing.tracks.map((t) => t.uri));
 					const missingUris = p.tracks
-						.filter((t) => !currentTrackUris.has(t.uri))
+						.filter((t) => t.uri && !currentTrackUris.has(t.uri))
 						.map((t) => t.uri);
 					if (missingUris.length > 0) {
 						playlistActions.push({ id: targetId, uris: missingUris, name: p.name });
 					}
 				} else {
 					// Create new
-					const uris = p.tracks.map((t) => t.uri);
+					const uris = p.tracks.filter((t) => t.uri).map((t) => t.uri);
 					if (uris.length > 0) {
 						playlistActions.push({ create: true, name: p.name, uris: uris });
 					}
