@@ -87,10 +87,22 @@ export class BackupManager {
 		reader.onload = async (e) => {
 			try {
 				const importColl = JSON.parse(e.target.result);
-				this.processImport(importColl);
+				// Await the import process to catch errors bubbles up from fetch
+				await this.processImport(importColl);
 			} catch (err) {
 				console.error(err);
-				this.ui.showError("Invalid JSON file");
+				// Improved error handling
+				if (err.message && err.message.includes("403")) {
+					this.ui.showError(
+						"Permission Denied: Please log in with 'Login to Import' to grant write permissions."
+					);
+				} else if (err.message && (err.message.includes("400") || err.message.includes("name"))) {
+					this.ui.showError("Invalid Data: Playlist name is missing.");
+				} else if (err instanceof SyntaxError) {
+					this.ui.showError("Invalid JSON file");
+				} else {
+					this.ui.showError(`Import Failed: ${err.message}`);
+				}
 			}
 		};
 		reader.readAsText(file);
@@ -129,12 +141,6 @@ export class BackupManager {
 		}
 
 		// 4. Process Playlists
-		// Simplified logic: If playlist name exists, we assume it's the same and we can append tracks?
-		// Original app logic: "If existingByName && !isNameDuplicatedInImport -> use existing".
-		// Let's stick to: Create new if not exists, or if duplicate name.
-		// Actually, to be safe and simple: Create new playlists for everything import, maybe with a suffix if needed?
-		// The original app logic tries to match by name.
-
 		const currentPlaylistsByName = {};
 		Object.values(this.collections.playlists).forEach((p) => {
 			currentPlaylistsByName[p.name] = p;
@@ -145,6 +151,13 @@ export class BackupManager {
 		if (importColl.playlists) {
 			for (const pid in importColl.playlists) {
 				const p = importColl.playlists[pid];
+
+				// Validation: missing name causing 400
+				if (!p.name) {
+					console.warn("Skipping playlist with missing name", p);
+					continue;
+				}
+
 				const existing = currentPlaylistsByName[p.name];
 				let targetId;
 
