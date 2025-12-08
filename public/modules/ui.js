@@ -88,4 +88,9 @@ export class UIManager {
 		alert(msg); // Simple alert for now, could be better
 		console.error(msg);
 	}
+
+	enableButtons() {
+		this.$btnExport.prop("disabled", false);
+		this.$btnImport.prop("disabled", false);
+	}
 }

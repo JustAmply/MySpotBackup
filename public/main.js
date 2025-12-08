@@ -55,6 +55,7 @@ function startApp(token, ui, config) {
 	backupManager.loadAccountData();
 
 	$("#btnExport").on("click", () => backupManager.exportData());
+	$("#btnImport").on("click", () => $("#fileImport").click());
 	$("#fileImport").on("change", (e) => backupManager.importData(e.target.files[0]));
 }
 
